@@ -5,6 +5,7 @@ import {
     Message,
     Keypair,
     StateLeaf,
+    VoteLeaf,
 } from 'maci-domainobjs'
 
 import {
@@ -58,12 +59,12 @@ class MaciState {
     }
 
     /*
-     * Return an array of zeroes (0) of length voteOptionTreeDepth
+     * Return an array of zero-votes of length voteOptionTreeDepth
      */
-    private genBlankVotes = () => {
-        const votes: SnarkBigInt[] = []
+    private genBlankVotes = (): VoteLeaf[] => {
+        const votes: VoteLeaf[] = []
         for (let i = 0; i < bigInt(5).pow(this.voteOptionTreeDepth); i++) {
-            votes.push(bigInt(0))
+            votes.push(new VoteLeaf(bigInt(0), bigInt(0)))
         }
 
         return votes
@@ -215,12 +216,16 @@ class MaciState {
         }
 
         // If there are insufficient vote credits, do nothing
-        const prevSpentCred = user.votes[command.voteOptionIndex]
+        const prevSpentCred = 
+            user.votes[command.voteOptionIndex].pos +
+            user.votes[command.voteOptionIndex].neg
+
+        const voiceCreditsToSpend = command.vote.pos + command.vote.neg
 
         const voiceCreditsLeft =
             user.voiceCreditBalance +
             (prevSpentCred * prevSpentCred) -
-            (command.newVoteWeight * command.newVoteWeight)
+            (voiceCreditsToSpend * voiceCreditsToSpend)
 
         if (voiceCreditsLeft < 0) {
             return
@@ -232,20 +237,10 @@ class MaciState {
         }
 
         // Update the user's vote option tree, pubkey, voice credit balance,
-        // and nonce
-        const newVotesArr: SnarkBigInt[] = []
-        for (let i = 0; i < this.users.length; i++) {
-            if (i === command.voteOptionIndex) {
-                newVotesArr.push(command.newVoteWeight)
-            } else {
-                newVotesArr.push(bigInt(user.votes[i].toString()))
-            }
-        }
-
-        // Deep-copy the user and update its attributes
+        // and nonce. To do so, deep-copy the user and update their attributes.
         const newUser = user.copy()
         newUser.nonce = newUser.nonce + bigInt(1)
-        newUser.votes[command.voteOptionIndex] = command.newVoteWeight
+        newUser.votes[command.voteOptionIndex] = command.vote.copy()
         newUser.voiceCreditBalance = voiceCreditsLeft
         newUser.pubKey = command.newPubKey.copy()
 
@@ -318,7 +313,7 @@ class MaciState {
         )
 
         for (const vote of user.votes) {
-            voteOptionTree.insert(vote)
+            voteOptionTree.insert(vote.pack())
         }
 
         const voteOptionTreePath = voteOptionTree.genMerklePath(command.voteOptionIndex)
@@ -335,9 +330,9 @@ class MaciState {
             'ecdh_public_key': encPubKey.asCircuitInputs(),
             'message': message.asCircuitInputs(),
             'msg_tree_root': messageTree.root,
+            'vote_options_leaf_raw': currentVoteWeight.asCircuitInputs(),
             'msg_tree_path_elements': msgTreePath.pathElements,
             'msg_tree_path_index': msgTreePath.indices,
-            'vote_options_leaf_raw': currentVoteWeight,
             'vote_options_tree_root': voteOptionTree.root,
             'vote_options_tree_path_elements': voteOptionTreePath.pathElements,
             'vote_options_tree_path_index': voteOptionTreePath.indices,
@@ -464,16 +459,17 @@ class MaciState {
      * zeroth state leaf.
      * @param _startIndex The state tree index. Only leaves before this index
      *                    are included in the tally.
+     * @return A list of vote leaves whcih contain the 
      */
     public computeCumulativeVoteTally = (
         _startIndex: SnarkBigInt,
-    ): SnarkBigInt[] => {
+    ): VoteLeaf[] => {
         assert(bigInt(this.users.length) >= _startIndex)
 
         // results should start off with 0s
-        const results: SnarkBigInt[] = []
+        const results: VoteLeaf[] = []
         for (let i = 0; i < bigInt(5).pow(this.voteOptionTreeDepth); i++) {
-            results.push(bigInt(0))
+            results.push(new VoteLeaf(bigInt(0), bigInt(0)))
         }
 
         // Compute the cumulative total up till startIndex - 1 (since we should
@@ -481,10 +477,14 @@ class MaciState {
         for (let i = bigInt(0); i < bigInt(_startIndex) - bigInt(1); i++) {
             const user = this.users[i]
             for (let j = 0; j < user.votes.length; j++) {
-                results[j] += user.votes[j]
+                results[j].pos += user.votes[j].pos
+                results[j].neg += user.votes[j].neg
             }
         }
 
+        for (const r of results) {
+            assert(VoteLeaf.isValidVoteData(r.pack()))
+        }
         return results
     }
 
@@ -500,7 +500,7 @@ class MaciState {
     public computeBatchVoteTally = (
         _startIndex: SnarkBigInt,
         _batchSize: SnarkBigInt,
-    ): SnarkBigInt[] => {
+    ): VoteLeaf[] => {
         _startIndex = bigInt(_startIndex)
         _batchSize = bigInt(_batchSize)
 
@@ -511,9 +511,9 @@ class MaciState {
         assert(bigInt(_startIndex) % bigInt(_batchSize) === bigInt(0))
 
         // Fill results with 0s
-        const results: SnarkBigInt[] = []
+        const results: VoteLeaf[] = []
         for (let i = 0; i < bigInt(5).pow(this.voteOptionTreeDepth); i++) {
-            results.push(bigInt(0))
+            results.push(new VoteLeaf(bigInt(0), bigInt(0)))
         }
 
         // Compute the tally
@@ -528,7 +528,8 @@ class MaciState {
             if (userIndex < this.users.length) {
                 const votes = this.users[userIndex].votes
                 for (let j = 0; j < votes.length; j++) {
-                    results[j] += votes[j]
+                    results[j].pos += votes[j].pos
+                    results[j].neg += votes[j].neg
                 }
             } else {
                 break
@@ -569,11 +570,6 @@ class MaciState {
 
         assert(currentResults.length === batchResults.length)
 
-        const newResults: SnarkBigInt[] = []
-        for (let i = 0; i < currentResults.length; i++) {
-            newResults[i] = currentResults[i] + batchResults[i]
-        }
-
         const currentResultsCommitment = genTallyResultCommitment(
             currentResults,
             _currentResultsSalt,
@@ -590,7 +586,7 @@ class MaciState {
         }
 
         const stateLeaves: StateLeaf[] = []
-        const voteLeaves: StateLeaf[][] = []
+        const voteLeaves: VoteLeaf[][] = []
 
         if (_startIndex === bigInt(0)) {
             stateLeaves.push(this.zerothStateLeaf)
@@ -663,10 +659,10 @@ class MaciState {
         const intermediateStateRoot = intermediateTree.leaves[_startIndex / _batchSize]
         const intermediatePathElements = intermediateTree.genMerklePath(intermediatePathIndex).pathElements
 
-        const circuitInputs = stringifyBigInts({
-            voteLeaves,
+        const circuitInputs = {
+            voteLeaves: voteLeaves.map((x) => x.map((y)=> y.pack())),
             stateLeaves: stateLeaves.map((x) => x.asCircuitInputs()),
-            currentResults,
+            currentResults: currentResults.map((x) => x.pack()),
             fullStateRoot: this.genStateRoot(),
             currentResultsSalt: _currentResultsSalt,
             newResultsSalt: _newResultsSalt,
@@ -674,9 +670,9 @@ class MaciState {
             intermediatePathElements,
             intermediatePathIndex,
             intermediateStateRoot,
-        })
+        }
 
-        return circuitInputs
+        return stringifyBigInts(circuitInputs)
     }
 }
 
@@ -684,19 +680,19 @@ class MaciState {
  * A helper function which hashes a list of results with a salt and returns the
  * hash.
  *
- * @param results A list of vote weights
+ * @param votes A list of vote leaves
  * @parm salt A random salt
  * @return The hash of the results and the salt, with the salt last
  */
 const genTallyResultCommitment = (
-    results: SnarkBigInt[],
+    votes: VoteLeaf[],
     salt: SnarkBigInt,
     voteOptionTreeDepth: number,
 ): SnarkBigInt => {
 
     const tree = new IncrementalQuinTree(voteOptionTreeDepth, bigInt(0))
-    for (const result of results) {
-        tree.insert(bigInt(result))
+    for (const vote of votes) {
+        tree.insert(vote.pack())
     }
     return hashLeftRight(tree.root, salt)
 }

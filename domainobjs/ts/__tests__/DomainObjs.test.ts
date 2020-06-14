@@ -4,12 +4,14 @@ import {
     Keypair,
     PrivKey,
     PubKey,
+    VoteLeaf,
 } from '../'
 
 import {
     genKeypair,
     bigInt,
     unpackPubKey,
+    SNARK_FIELD_SIZE,
 } from 'maci-crypto'
 
 describe('Domain objects', () => {
@@ -26,9 +28,30 @@ describe('Domain objects', () => {
         bigInt(10),
         newPubKey,
         bigInt(0),
-        bigInt(9),
+        new VoteLeaf(bigInt(9), bigInt(0)),
         bigInt(123),
     )
+
+    describe('Vote leaves', () => {
+        it('The constructor should reject oversized inputs', () => {
+            expect(() => {
+                new VoteLeaf(SNARK_FIELD_SIZE, bigInt(1))
+            }).toThrow()
+        })
+
+        it('pack() should return a correct value', () => {
+            const voteLeaf = new VoteLeaf(bigInt(1234), bigInt(1234))
+            const result = voteLeaf.pack().toString(16)
+            expect(result).toEqual('4d200000000000000000000000000004d2')
+        })
+
+        it('unpack() should return a correct value', () => {
+            const packed = bigInt('0x4d200000000000000000000000000003d2')
+            const voteLeaf = VoteLeaf.unpack(packed)
+            expect(voteLeaf.pos.toString()).toEqual('1234')
+            expect(voteLeaf.neg.toString()).toEqual('978')
+        })
+    })
 
     describe('State leaves', () => {
         it('The serialize() and unserialize() functions should work correctly', () => {
@@ -195,7 +218,7 @@ describe('Domain objects', () => {
                 bigInt(10),
                 newPubKey,
                 bigInt(0),
-                bigInt(9),
+                new VoteLeaf(bigInt(9), bigInt(0)),
                 bigInt(123),
             )
 

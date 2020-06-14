@@ -5,6 +5,7 @@ import {
     Keypair,
     Command,
     StateLeaf,
+    VoteLeaf,
 } from 'maci-domainobjs'
 
 import { 
@@ -151,7 +152,8 @@ const executeSuite = async (data: any, expect: any) => {
         const userKeypair = userKeypairs[data.commands[i].user]
         const stateIndex = i + 1
         const voteOptionIndex = data.commands[i].voteOptionIndex
-        const newVoteWeight  = data.commands[i].voteWeight
+        const posVoteWeight  = data.commands[i].voteWeight[0]
+        const negVoteWeight  = data.commands[i].voteWeight[1]
         const nonce = data.commands[i].nonce
         const salt = '0x' + genRandomSalt().toString(16)
  
@@ -162,8 +164,9 @@ const executeSuite = async (data: any, expect: any) => {
             ` -d ${userPrivKey}` +
             ` -x ${maciAddress}` +
             ` -i ${stateIndex}` +
-            ` -v ${voteOptionIndex}` +
-            ` -w ${newVoteWeight}` +
+            ` -vi ${voteOptionIndex}` +
+            ` -w ${posVoteWeight}` +
+            ` -v ${negVoteWeight}` +
             ` -n ${nonce}` +
             ` -s ${salt}`
 
@@ -190,7 +193,7 @@ const executeSuite = async (data: any, expect: any) => {
             bigInt(stateIndex),
             userKeypair.pubKey,
             bigInt(voteOptionIndex),
-            bigInt(newVoteWeight),
+            new VoteLeaf(bigInt(posVoteWeight), bigInt(negVoteWeight)),
             bigInt(nonce),
             bigInt(salt),
         )
@@ -283,7 +286,7 @@ const executeSuite = async (data: any, expect: any) => {
 
     const finalTallyCommitment = await maciContract.currentResultsCommitment()
     const expectedTallyCommitment = genTallyResultCommitment(
-        data.expectedTally,
+        data.expectedTally.map((x) => new VoteLeaf(bigInt(x[0]), bigInt(x[1]))),
         salt,
         voteOptionTreeDepth,
     )

@@ -1,4 +1,8 @@
 import {
+    VoteLeaf,
+} from 'maci-domainobjs'
+
+import {
     genRandomSalt,
     bigInt,
     SnarkBigInt,
@@ -39,9 +43,9 @@ const genResultCommitmentVerifierCircuitInputs = (
     return {
         currentResultsSalt,
         currentResultsCommitment,
-        currentResults,
+        currentResults: currentResults.map((x) => x.pack()),
         newResultsSalt,
-        newResults,
+        newResults: newResults.map((x) => x.pack()),
     }
 }
 
@@ -57,12 +61,13 @@ describe('ResultCommitmentVerifier circuit', () => {
         const currentResultsSalt = genRandomSalt()
         const newResultsSalt = genRandomSalt()
 
-        const currentResults: SnarkBigInt[] = []
-        const newResults: SnarkBigInt[] = []
+        const currentResults: VoteLeaf[] = []
+        const newResults: VoteLeaf[] = []
 
         for (let i = 0; i < NUM_OPTIONS; i ++) {
-            currentResults.push(randVal())
-            newResults.push(randVal())
+            const leaf = new VoteLeaf(randVal(), randVal())
+            currentResults.push(leaf)
+            newResults.push(leaf)
         }
 
         const newResultsCommitment = genTallyResultCommitment(newResults, newResultsSalt, DEPTH)

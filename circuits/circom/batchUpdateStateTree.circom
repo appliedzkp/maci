@@ -23,7 +23,7 @@ template BatchUpdateStateTree(
     var MESSAGE_LENGTH = 11;
     signal private input message[batch_size][MESSAGE_LENGTH];
 
-    //  The vote option index's weight, which is an unhashed value
+    //  The vote option leaf, which is a packed VoteLeaf
     signal private input vote_options_leaf_raw[batch_size];
 
     // The vote option tree root

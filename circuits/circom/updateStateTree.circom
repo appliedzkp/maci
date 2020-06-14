@@ -1,3 +1,4 @@
+include "./voteLeaf.circom";
 include "./decrypt.circom";
 include "./ecdh.circom"
 include "./hasherPoseidon.circom";
@@ -33,12 +34,18 @@ template CheckValidUpdate() {
     signal input correct_nonce;
     signal input valid_state_leaf_index;
     signal input valid_vote_options_leaf_index;
+    signal input valid_vote_options_packed_leaf;
 
     signal output out;
 
     component valid_update = IsEqual();
-    valid_update.in[0] <== 5;
-    valid_update.in[1] <== valid_signature + sufficient_vote_credits + correct_nonce + valid_state_leaf_index + valid_vote_options_leaf_index;
+    valid_update.in[0] <== 6;
+    valid_update.in[1] <== valid_signature +
+                           sufficient_vote_credits +
+                           correct_nonce +
+                           valid_state_leaf_index +
+                           valid_vote_options_leaf_index +
+                           valid_vote_options_packed_leaf;
 
     out <== valid_update.out;
 }
@@ -356,14 +363,29 @@ template UpdateStateTree(
 
     // *************** BEGIN perform update ***************
     // Calculate new vote credits
+    component voteOptionsLeafCalc = CalculateSquaredVoteLeaf();
+    voteOptionsLeafCalc.packedLeaf <== vote_options_leaf_raw;
     signal vote_options_leaf_squared;
-    vote_options_leaf_squared <== vote_options_leaf_raw * vote_options_leaf_raw;
+    vote_options_leaf_squared <== voteOptionsLeafCalc.squared;
 
+    component valid_vote_options_packed_leaf = ValidPackedVoteLeaf();
+    valid_vote_options_packed_leaf.packedLeaf <== decrypted_command_out[CMD_VOTE_WEIGHT_IDX];
     signal user_vote_weight_squared;
-    user_vote_weight_squared <== decrypted_command_out[CMD_VOTE_WEIGHT_IDX] * decrypted_command_out[CMD_VOTE_WEIGHT_IDX];
+    user_vote_weight_squared <== 
+        (valid_vote_options_packed_leaf.pos + valid_vote_options_packed_leaf.neg) * 
+        (valid_vote_options_packed_leaf.pos + valid_vote_options_packed_leaf.neg);
 
+    component new_voice_credits_selector = Mux1();
+    new_voice_credits_selector.s <== valid_vote_options_packed_leaf.out;
+    new_voice_credits_selector.c[0] <== 0;
+    new_voice_credits_selector.c[1] <== state_tree_data_raw[STATE_TREE_VOTE_BALANCE_IDX] + 
+                                        vote_options_leaf_squared - 
+                                        user_vote_weight_squared;
+
+    // new_voice_credits should be 0 if valid_vote_options_packed_leaf.out is
+    // 0, and the computed value if valid_vote_options_packed_leaf.out is 1
     signal new_vote_credits;
-    new_vote_credits <== state_tree_data_raw[STATE_TREE_VOTE_BALANCE_IDX] + vote_options_leaf_squared - user_vote_weight_squared;
+    new_vote_credits <== new_voice_credits_selector.out;
 
     // Construct new state tree data (and its hash)
     signal new_state_tree_data[STATE_TREE_DATA_LENGTH];
@@ -406,6 +428,7 @@ template UpdateStateTree(
     check_valid_update.correct_nonce <== correct_nonce.out;
     check_valid_update.valid_state_leaf_index <== valid_state_leaf_index.out;
     check_valid_update.valid_vote_options_leaf_index <== valid_vote_options_leaf_index.out;
+    check_valid_update.valid_vote_options_packed_leaf <== valid_vote_options_packed_leaf.out;
 
     // Compute the Merkle root of the new state tree
     component new_state_tree = MerkleTreeInclusionProof(state_tree_depth);

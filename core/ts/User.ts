@@ -1,7 +1,9 @@
+import * as assert from 'assert'
 
 import {
     PubKey,
     StateLeaf,
+    VoteLeaf,
 } from 'maci-domainobjs'
 
 import {
@@ -23,7 +25,7 @@ import {
  */
 class User {
     public pubKey: PubKey
-    public votes: SnarkBigInt[]
+    public votes: VoteLeaf[]
     public voiceCreditBalance: SnarkBigInt
 
     // The this is the current nonce. i.e. a user who has published 0 valid
@@ -33,12 +35,13 @@ class User {
 
     constructor(
         _pubKey: PubKey,
-        _votes: SnarkBigInt[],
+        _votes: VoteLeaf[],
         _voiceCreditBalance: SnarkBigInt,
         _nonce: SnarkBigInt,
     ) {
+
         this.pubKey = _pubKey
-        this.votes = _votes.map(bigInt)
+        this.votes = _votes
         this.voiceCreditBalance = bigInt(_voiceCreditBalance)
         this.nonce = bigInt(_nonce)
     }
@@ -47,14 +50,9 @@ class User {
      * Return a deep copy of this User
      */
     public copy = (): User => {
-        const newVotesArr: SnarkBigInt[] = []
-        for (let i = 0; i < this.votes.length; i++) {
-            newVotesArr.push(bigInt(this.votes[i].toString()))
-        }
-
         return new User(
             this.pubKey.copy(),
-            newVotesArr,
+            this.votes.map((x) => x.copy()),
             bigInt(this.voiceCreditBalance.toString()),
             bigInt(this.nonce.toString()),
         )
@@ -67,9 +65,9 @@ class User {
     public static genBlankUser = (
         _voteOptionTreeDepth: number,
     ): User => {
-        const votes: SnarkBigInt[] = []
+        const votes: VoteLeaf[] = []
         for (let i = 0; i < 5 ** _voteOptionTreeDepth; i ++) {
-            votes.push(bigInt(0))
+            votes.push(new VoteLeaf(bigInt(0), bigInt(0)))
         }
 
         return new User(
@@ -93,7 +91,7 @@ class User {
         )
 
         for (const vote of this.votes) {
-            voteOptionTree.insert(vote)
+            voteOptionTree.insert(vote.pack())
         }
 
         return new StateLeaf(

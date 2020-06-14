@@ -4,11 +4,13 @@ import {
     bigInt,
     genRandomSalt,
 } from 'maci-crypto'
+
 import {
     PrivKey,
     Command,
     Message,
     Keypair,
+    VoteLeaf,
 } from 'maci-domainobjs'
 
 const coordinator = new Keypair(new PrivKey(bigInt(config.maci.coordinatorPrivKey)))
@@ -36,6 +38,9 @@ const genMessage = (command: Command): Message => {
     return message
 }
 
+const posVote = bigInt(9)
+const negVote = bigInt(0)
+
 describe('Process one message', () => {
     beforeAll(async () => {
         // Sign up the user
@@ -43,12 +48,11 @@ describe('Process one message', () => {
     })
 
     it('processMessage() should process a valid message', async () => {
-        const voteWeight = bigInt(9)
         const command = new Command(
             bigInt(1),
             user.pubKey,
             bigInt(0),
-            voteWeight,
+            new VoteLeaf(posVote, negVote),
             bigInt(1),
             genRandomSalt(),
         )
@@ -65,8 +69,11 @@ describe('Process one message', () => {
         const newStateRoot = copiedState.genStateRoot()
 
         expect(newStateRoot.toString()).not.toEqual(oldState.genStateRoot().toString())
+
+        const totalVotes = command.vote.pos + command.vote.neg
         expect(copiedState.users[0].voiceCreditBalance.toString())
-            .toEqual((bigInt(initialVoiceCreditBalance) - voteWeight.pow(bigInt(2))).toString())
+            .toEqual((bigInt(initialVoiceCreditBalance) - totalVotes.pow(bigInt(2))).toString())
+        expect(copiedState.users[0].votes[0].pos.toString()).toEqual(posVote.toString())
     })
 
     it('processMessage() should not process a message with an incorrect nonce', async () => {
@@ -74,7 +81,7 @@ describe('Process one message', () => {
             bigInt(1),
             user.pubKey,
             bigInt(0),
-            bigInt(9),
+            new VoteLeaf(posVote, negVote),
             bigInt(0),
             genRandomSalt(),
         )
@@ -94,11 +101,13 @@ describe('Process one message', () => {
     })
 
     it('processMessage() should not process a message with an incorrect vote weight', async () => {
+        const pos = bigInt(initialVoiceCreditBalance + 1)
+        const neg = bigInt(0)
         const command = new Command(
             bigInt(1),
             user.pubKey,
             bigInt(0),
-            bigInt(initialVoiceCreditBalance + 1),
+            new VoteLeaf(pos, neg),
             bigInt(1),
             genRandomSalt(),
         )
@@ -122,7 +131,7 @@ describe('Process one message', () => {
             bigInt(2),
             user.pubKey,
             bigInt(0),
-            bigInt(9),
+            new VoteLeaf(posVote, negVote),
             bigInt(1),
             genRandomSalt(),
         )
@@ -146,7 +155,7 @@ describe('Process one message', () => {
             bigInt(1),
             user.pubKey,
             bigInt(0),
-            bigInt(9),
+            new VoteLeaf(posVote, negVote),
             bigInt(1),
             genRandomSalt(),
         )
@@ -173,7 +182,7 @@ describe('Process one message', () => {
             bigInt(1),
             user.pubKey,
             bigInt(maxVoteOptionIndex + 1),
-            bigInt(9),
+            new VoteLeaf(posVote, negVote),
             bigInt(1),
             genRandomSalt(),
         )

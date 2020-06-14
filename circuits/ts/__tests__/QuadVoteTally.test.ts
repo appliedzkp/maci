@@ -1,9 +1,9 @@
-
 import { config } from 'maci-config'
 import { 
     genTallyResultCommitment,
     MaciState,
 } from 'maci-core'
+
 import {
     genRandomSalt,
     bigInt,
@@ -13,6 +13,7 @@ import {
 import {
     Keypair,
     Command,
+    VoteLeaf,
 } from 'maci-domainobjs'
 
 import {
@@ -57,12 +58,12 @@ describe('Quadratic vote tallying circuit', () => {
 
         // Publish and process a message
         const voteOptionIndex = randomRange(0, voteOptionsMaxIndex)
-        const voteWeight = bigInt(9)
+        const vote = new VoteLeaf(bigInt(9), bigInt(0))
         const command = new Command(
             bigInt(1),
             user.pubKey,
             voteOptionIndex,
-            voteWeight,
+            vote,
             bigInt(1),
             genRandomSalt(),
         )
@@ -82,14 +83,14 @@ describe('Quadratic vote tallying circuit', () => {
         // Ensure that the current results are all 0 since this is the first
         // batch
         for (let i = 0; i < currentResults.length; i++) {
-            expect(currentResults[i].toString()).toEqual(bigInt(0).toString())
+            expect(currentResults[i].pack().toString()).toEqual(bigInt(0).toString())
         }
 
         // Calculate the vote tally for a batch of state leaves
         const tally = maciState.computeBatchVoteTally(startIndex, quadVoteTallyBatchSize)
 
         expect(tally.length.toString()).toEqual((5 ** voteOptionTreeDepth).toString())
-        expect(tally[voteOptionIndex].toString()).toEqual(voteWeight.toString())
+        expect(tally[voteOptionIndex].pack().toString()).toEqual(vote.pack().toString())
 
         const currentResultsSalt = bigInt(0)
         const newResultsSalt = genRandomSalt()

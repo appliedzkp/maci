@@ -6,93 +6,111 @@
         {
             "user": 0,
             "voteOptionIndex": 0,
-            "voteWeight": 1,
+            "voteWeight": [1, 0],
             "nonce": 1
         },
         {
             "user": 1,
             "voteOptionIndex": 1,
-            "voteWeight": 1,
+            "voteWeight": [1, 0],
             "nonce": 1
         },
         {
             "user": 2,
             "voteOptionIndex": 2,
-            "voteWeight": 1,
+            "voteWeight": [1, 0],
             "nonce": 1
         },
         {
             "user": 3,
             "voteOptionIndex": 3,
-            "voteWeight": 1,
+            "voteWeight": [1, 0],
             "nonce": 1
         },
         {
             "user": 4,
             "voteOptionIndex": 4,
-            "voteWeight": 1,
+            "voteWeight": [1, 0],
             "nonce": 1
         },
         {
             "user": 5,
             "voteOptionIndex": 5,
-            "voteWeight": 1,
+            "voteWeight": [1, 0],
             "nonce": 1
         },
         {
             "user": 6,
             "voteOptionIndex": 6,
-            "voteWeight": 1,
+            "voteWeight": [1, 0],
             "nonce": 1
         },
         {
             "user": 7,
             "voteOptionIndex": 7,
-            "voteWeight": 1,
+            "voteWeight": [1, 0],
             "nonce": 1
         },
         {
             "user": 8,
             "voteOptionIndex": 8,
-            "voteWeight": 1,
+            "voteWeight": [1, 0],
             "nonce": 1
         },
         {
             "user": 9,
             "voteOptionIndex": 9,
-            "voteWeight": 1,
+            "voteWeight": [1, 0],
             "nonce": 1
         },
         {
             "user": 10,
             "voteOptionIndex": 10,
-            "voteWeight": 1,
+            "voteWeight": [1, 0],
             "nonce": 1
         },
         {
             "user": 11,
             "voteOptionIndex": 11,
-            "voteWeight": 1,
+            "voteWeight": [1, 0],
             "nonce": 1
         },
         {
             "user": 12,
             "voteOptionIndex": 12,
-            "voteWeight": 1,
+            "voteWeight": [1, 0],
             "nonce": 1
         },
         {
             "user": 13,
             "voteOptionIndex": 13,
-            "voteWeight": 1,
+            "voteWeight": [1, 0],
             "nonce": 1
         },
         {
             "user": 14,
             "voteOptionIndex": 14,
-            "voteWeight": 1,
+            "voteWeight": [0, 1],
             "nonce": 1
         }
     ],
-    "expectedTally": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0]
+    "expectedTally": [
+        [1, 0],
+        [1, 0],
+        [1, 0],
+        [1, 0],
+        [1, 0],
+        [1, 0],
+        [1, 0],
+        [1, 0],
+        [1, 0],
+        [1, 0],
+        [1, 0],
+        [1, 0],
+        [1, 0],
+        [1, 0],
+        [0, 1],
+        [0, 0]
+    ],
+    "Notes": "Nobody voted for the last vote option"
 }

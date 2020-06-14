@@ -8,6 +8,7 @@ import {
     StateLeaf,
     Command,
     Message,
+    VoteLeaf,
 } from 'maci-domainobjs'
 
 import {
@@ -31,7 +32,7 @@ const coordinator = new Keypair()
 
 describe('State tree root update verification circuit', () => {
     let circuit 
-    const voteWeight = bigInt(2)
+    const vote = new VoteLeaf(bigInt(2), bigInt(0))
 
     const maciState = new MaciState(
         coordinator,
@@ -55,7 +56,7 @@ describe('State tree root update verification circuit', () => {
             bigInt(1),
             user.pubKey,
             bigInt(0),
-            voteWeight,
+            vote,
             bigInt(1),
             genRandomSalt(),
         )
@@ -109,7 +110,7 @@ describe('State tree root update verification circuit', () => {
                 bigInt(1),
                 user.pubKey,
                 bigInt(0),
-                voteWeight,
+                vote,
                 bigInt(i + 1),
                 genRandomSalt(),
             )

@@ -205,8 +205,102 @@ interface IStateLeaf {
     nonce: SnarkBigInt;
 }
 
-interface VoteOptionTreeLeaf {
-    votes: SnarkBigInt;
+interface IVoteLeaf {
+    pos: SnarkBigInt;
+    neg: SnarkBigInt;
+}
+
+/*
+ * To represent both positive and negative votes for a particular vote option,
+ * we shift the positive votes left by 248 bits, and add the negative votes.
+ *
+ * The maximum value for a positive or negative vote is
+ * 0xfffffffffffffffffffffffffffffff.
+ *
+ * For instance, we encode 0x80 positive votes and 0x0100 negative votes as such:
+ * 0x800000000000000000000000000000100
+ *
+ * The maximum value per vote is 2 ** 124 - 1. We chose this value so that the maximum
+ * encoded value is always less than the BabyJub field size:
+ *
+ * 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff < 
+ * 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001
+ *
+ */
+
+const VOTE_LEAF_BITS_PER_VAL = 124
+const MAX_VOTE_LEAF_POS_OR_NEG_VAL = 
+    bigInt(2).pow(bigInt(VOTE_LEAF_BITS_PER_VAL)).sub(bigInt(1))
+
+class VoteLeaf implements IVoteLeaf {
+    public pos: SnarkBigInt
+    public neg: SnarkBigInt
+
+    constructor(_pos: SnarkBigInt, _neg: SnarkBigInt) {
+        assert(VoteLeaf.isWithinRange(_pos))
+        assert(VoteLeaf.isWithinRange(_neg))
+        this.pos = _pos
+        this.neg = _neg
+    }
+
+    /*
+     * Convert this object into a number where the last 124 bits represent the
+     * negative votes and the remaining bits represent the positive votes.  For
+     * instance, we encode 0x80 positive votes and 0x0100 negative votes as
+     * such:
+     * 0x800000000000000000000000000000100
+     */
+    public pack = (): SnarkBigInt => {
+        const packed = this.pos.shl(VOTE_LEAF_BITS_PER_VAL).add(this.neg)
+        assert(packed < SNARK_FIELD_SIZE)
+
+        return packed
+    }
+
+    /*
+     * Returns the same value as pack() but is named as such for consistency
+     * with other domain objects.
+     */
+    public asCircuitInputs = (): SnarkBigInt => {
+        return this.pack()
+    }
+
+    /*
+     * Deep-copies this object.
+     */
+    public copy = (): VoteLeaf => {
+        return new VoteLeaf(
+            bigInt(this.pos.toString()),
+            bigInt(this.neg.toString()),
+        )
+    }
+
+    /*
+     * Converts the output of pack() into a VoteLeaf
+     */
+    public static unpack = (_voteData: SnarkBigInt): VoteLeaf => {
+        const pos = _voteData.shr(VOTE_LEAF_BITS_PER_VAL)
+        const neg = _voteData - pos.shl(VOTE_LEAF_BITS_PER_VAL)
+
+        // No need to do a range check here as the constructor does it
+        return new VoteLeaf(pos, neg)
+    }
+
+    /*
+     * Checks whether the given value is less than or equal to 2 ** 124 - 1
+     */
+    public static isWithinRange = (_value: SnarkBigInt): boolean => {
+        return _value <= MAX_VOTE_LEAF_POS_OR_NEG_VAL
+    }
+
+    /*
+     * Range-checks a packed vote leaf value.
+     */
+    public static isValidVoteData = (_voteData: SnarkBigInt): boolean => {
+        const pos = _voteData.shr(VOTE_LEAF_BITS_PER_VAL)
+        const neg = _voteData - pos.shl(VOTE_LEAF_BITS_PER_VAL)
+        return VoteLeaf.isWithinRange(pos) && VoteLeaf.isWithinRange(neg)
+    }
 }
 
 /*
@@ -359,7 +453,7 @@ interface ICommand {
     stateIndex: SnarkBigInt;
     newPubKey: PubKey;
     voteOptionIndex: SnarkBigInt;
-    newVoteWeight: SnarkBigInt;
+    vote: VoteLeaf;
     nonce: SnarkBigInt;
 
     sign: (PrivKey) => Signature;
@@ -373,7 +467,7 @@ class Command implements ICommand {
     public stateIndex: SnarkBigInt
     public newPubKey: PubKey
     public voteOptionIndex: SnarkBigInt
-    public newVoteWeight: SnarkBigInt
+    public vote: VoteLeaf
     public nonce: SnarkBigInt
     public salt: SnarkBigInt
 
@@ -381,14 +475,21 @@ class Command implements ICommand {
         stateIndex: SnarkBigInt,
         newPubKey: PubKey,
         voteOptionIndex: SnarkBigInt,
-        newVoteWeight: SnarkBigInt,
+        vote: VoteLeaf,
         nonce: SnarkBigInt,
         salt: SnarkBigInt = genRandomSalt(),
     ) {
+        // Validate the vote leaf
+        assert(VoteLeaf.isValidVoteData(vote.pack()))
+
+        // Note that we don't prevent the user from casting positive and
+        // negative votes at the same time. This may be something they intend
+        // to do in order to signal contention at a particular vote option.
+
         this.stateIndex = stateIndex
         this.newPubKey = newPubKey
         this.voteOptionIndex = voteOptionIndex
-        this.newVoteWeight = newVoteWeight
+        this.vote= vote
         this.nonce = nonce
         this.salt = salt
     }
@@ -399,7 +500,7 @@ class Command implements ICommand {
             bigInt(this.stateIndex.toString()),
             this.newPubKey.copy(),
             bigInt(this.voteOptionIndex.toString()),
-            bigInt(this.newVoteWeight.toString()),
+            VoteLeaf.unpack(this.vote.pack()),
             bigInt(this.nonce.toString()),
             bigInt(this.salt.toString()),
         )
@@ -411,7 +512,7 @@ class Command implements ICommand {
             this.stateIndex,
             ...this.newPubKey.asArray(),
             this.voteOptionIndex,
-            this.newVoteWeight,
+            this.vote.pack(),
             this.nonce,
             this.salt,
         ]
@@ -426,7 +527,7 @@ class Command implements ICommand {
             this.newPubKey[0] == command.newPubKey[0] &&
             this.newPubKey[1] == command.newPubKey[1] &&
             this.voteOptionIndex == command.voteOptionIndex &&
-            this.newVoteWeight == command.newVoteWeight &&
+            this.vote.pack().equals(command.vote.pack()) &&
             this.nonce == command.nonce &&
             this.salt == command.salt
     }
@@ -497,7 +598,7 @@ class Command implements ICommand {
             decrypted[0],
             new PubKey([decrypted[1], decrypted[2]]),
             decrypted[3],
-            decrypted[4],
+            VoteLeaf.unpack(decrypted[4]),
             decrypted[5],
             decrypted[6],
         )
@@ -513,7 +614,7 @@ class Command implements ICommand {
 
 export {
     StateLeaf,
-    VoteOptionTreeLeaf,
+    VoteLeaf,
     Command,
     Message,
     Keypair,

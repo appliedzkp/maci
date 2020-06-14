@@ -1,5 +1,7 @@
 tally.json
 test_tally.json
+**/tally.json
+**/test_tally.json
 integrationTests/test_tally.json
 deployedAddresses.json
 .etherlime-store

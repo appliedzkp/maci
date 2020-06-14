@@ -6,33 +6,50 @@
         {
             "user": 0,
             "voteOptionIndex": 0,
-            "voteWeight": 1,
+            "voteWeight": [1, 0],
             "nonce": 1
         },
         {
             "user": 1,
             "voteOptionIndex": 1,
-            "voteWeight": 1,
+            "voteWeight": [1, 0],
             "nonce": 1
         },
         {
             "user": 2,
             "voteOptionIndex": 2,
-            "voteWeight": 10,
+            "voteWeight": [10, 0],
             "nonce": 1
         },
         {
             "user": 3,
             "voteOptionIndex": 3,
-            "voteWeight": 1,
+            "voteWeight": [1, 0],
             "nonce": 1
         },
         {
             "user": 4,
             "voteOptionIndex": 4,
-            "voteWeight": 10,
+            "voteWeight": [0, 10],
             "nonce": 1
         }
     ],
-    "expectedTally": [1, 1, 10, 1, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    "expectedTally": [
+        [1, 0],
+        [1, 0],
+        [10, 0],
+        [1, 0],
+        [0, 10],
+        [0, 0],
+        [0, 0],
+        [0, 0],
+        [0, 0],
+        [0, 0],
+        [0, 0],
+        [0, 0],
+        [0, 0],
+        [0, 0],
+        [0, 0],
+        [0, 0]
+    ]
 }

@@ -14,6 +14,7 @@ import {
     PrivKey,
     Command,
     Keypair,
+    VoteLeaf,
 } from 'maci-domainobjs'
 
 import {
@@ -77,7 +78,7 @@ describe('Publishing messages', () => {
             bigInt(0),
             keypair.pubKey,
             bigInt(0),
-            bigInt(0),
+            new VoteLeaf(bigInt(0), bigInt(0)),
             bigInt(0),
             genRandomSalt(),
         )
@@ -110,7 +111,7 @@ describe('Publishing messages', () => {
                 bigInt(0),
                 keypair.pubKey,
                 bigInt(0),
-                bigInt(0),
+                new VoteLeaf(bigInt(0), bigInt(0)),
                 bigInt(0),
                 genRandomSalt(),
             )

@@ -283,7 +283,8 @@ const tally = async (args: any) => {
         const tally = maciState.computeBatchVoteTally(startIndex, batchSize)
 
         for (let i = 0; i < tally.length; i++) {
-            cumulativeTally[i] = bigInt(cumulativeTally[i]) + bigInt(tally[i])
+            cumulativeTally[i].pos = bigInt(cumulativeTally[i].pos) + bigInt(tally[i].pos)
+            cumulativeTally[i].neg = bigInt(cumulativeTally[i].neg) + bigInt(tally[i].neg)
         }
 
         if (startIndex.equals(bigInt(0)) && !currentResultsSalt.equals(bigInt(0))) {
@@ -386,7 +387,7 @@ const tally = async (args: any) => {
                     provider: ethProvider,
                     maci: maciContract.address,
                     commitment: `0x${c.toString(16)}`,
-                    tally: tally.map((x) => x.toString()),
+                    tally: tally.map((x) => [x.pos.toString(), x.neg.toString()]),
                     salt: '0x' + currentResultsSalt.toString(16),
                 }
 

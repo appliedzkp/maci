@@ -8,9 +8,9 @@ import {
     maciContractAbi,
 } from 'maci-contracts'
 
-import {
-    bigInt,
-} from 'maci-crypto'
+import { bigInt } from 'maci-crypto'
+
+import { VoteLeaf } from 'maci-domainobjs'
 
 import {
     validateEthAddress,
@@ -74,7 +74,7 @@ const verify = async (args: any) => {
     }
 
     // Verify that the commitment matches the output of genTallyResultCommitment()
-    const tally = data.tally.map(bigInt)
+    const tally = data.tally.map((x) => new VoteLeaf(bigInt(x[0]), bigInt(x[1])))
     const salt = bigInt(data.salt)
     const commitment = bigInt(data.commitment)
 

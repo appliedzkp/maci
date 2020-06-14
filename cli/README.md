@@ -147,8 +147,9 @@ Fields that the user has to set:
 | Prompt for the user's Ethereum private key | `-dp` or `--prompt-for-eth-privkey` | If specified, ignores `-d / --eth-privkey` and prompts the user to input their Ethereum private key |
 | State index | `-i` or `--state-index` | The state index of the user |
 | The user's new or current MACI public key | `-p` or `--pubkey` | This should be a serialised BabyJub public key which should replace the user\'s public key in the state tree if the command is valid|
-| Vote option index | `-v` or `--vote-option-index` | The index of the option to vote for |
-| New vote weight | `-w` or `--new-vote-weight` | The vote weight to assign to said vote option |
+| Vote option index | `-vi` or `--vote-option-index` | The index of the option to vote for |
+| Positive vote weight | `-w` or `--pos-vote-weight` | The positive vote weight to assign to said vote option |
+| Negative vote weight | `-v` or `--neg-vote-weight` | The negative vote weight to assign to said vote option |
 | Nonce | `-n` or `--nonce` | The nonce of the message |
 | Salt | `-s` or `--salt` | The salt of the message. If unspecified, this command will randomly generate a salt |
 
@@ -283,8 +284,9 @@ node ./build/index.js publish -d 0xc87509a1c067bbde78beb793e6fa76530b6382a4c0241
 	-sk macisk.53c8bc722a9f9d4c7bd478c8c8b01177f82d9c68d1ce15078e93ea84f198644 \
 	-p macipk.a200c5991d633c0aefbe594de2d9cf8d1afbfbc935a1a39b0a7edc93b5a1abad \
 	-i 1 \
-	-v 0 \
+	-vi 0 \
 	-w 9 \
+	-v 0 \
 	-n 1
 ```
 
@@ -319,8 +321,9 @@ node ./build/index.js publish -d 0xc87509a1c067bbde78beb793e6fa76530b6382a4c0241
 	-sk macisk.53c8bc722a9f9d4c7bd478c8c8b01177f82d9c68d1ce15078e93ea84f198644 \
 	-p macipk.90833965a98a890dc0ddb32f95cd077a32d235fc6222fe9fea8aad9fd17feaa9 \
 	-i 1 \
-	-v 0 \
+	-vi 0 \
 	-w 9 \
+	-v 0 \
 	-n 2
 ```
 
@@ -340,8 +343,9 @@ node ./build/index.js publish -d 0xc87509a1c067bbde78beb793e6fa76530b6382a4c0241
 	-sk macisk.53c8bc722a9f9d4c7bd478c8c8b01177f82d9c68d1ce15078e93ea84f198644 \
 	-p macipk.a200c5991d633c0aefbe594de2d9cf8d1afbfbc935a1a39b0a7edc93b5a1abad \
 	-i 1 \
-	-v 1 \
+	-vi 1 \
 	-w 9 \
+	-v 0 \
 	-n 3
 ```
 

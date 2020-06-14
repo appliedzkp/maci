@@ -13,12 +13,22 @@ import {
 import {
     Keypair,
     Command,
+    VoteLeaf,
 } from 'maci-domainobjs'
 
 import {
     compileAndLoadCircuit,
 } from '../'
 import * as circomlib from 'circomlib'
+
+const keypair = new Keypair()
+const command = new Command(
+    bigInt(0),
+    keypair.pubKey,
+    bigInt(123),
+    new VoteLeaf(bigInt(123), bigInt(123)),
+    bigInt(1),
+)
 
 describe('Signature verification circuit', () => {
     let circuit
@@ -27,16 +37,6 @@ describe('Signature verification circuit', () => {
     })
 
     it('verifies a valid signature created with circomlib', async () => {
-
-        const keypair = new Keypair()
-        const command = new Command(
-            bigInt(0),
-            keypair.pubKey,
-            bigInt(123),
-            bigInt(123),
-            bigInt(1),
-        )
-
         const signer = new Keypair()
         const privKey = bigInt2Buffer(signer.privKey.rawPrivKey)
         const pubKey = circomlib.eddsa.prv2pub(privKey)
@@ -64,15 +64,6 @@ describe('Signature verification circuit', () => {
 
     it('verifies a valid signature', async () => {
 
-        const keypair = new Keypair()
-        const command = new Command(
-            bigInt(0),
-            keypair.pubKey,
-            bigInt(123),
-            bigInt(123),
-            bigInt(1),
-        )
-
         const signer = new Keypair()
         const sig = command.sign(signer.privKey)
         const plaintext = hash11(command.asArray())
@@ -99,15 +90,6 @@ describe('Signature verification circuit', () => {
     it('rejects an invalid signature', async () => {
         const circuitDef = await compiler(path.join(__dirname, 'circuits', '../../../circom/test/verifySignature_test.circom'))
         const circuit = new Circuit(circuitDef)
-
-        const keypair = new Keypair()
-        const command = new Command(
-            bigInt(0),
-            keypair.pubKey,
-            bigInt(123),
-            bigInt(123),
-            bigInt(1),
-        )
 
         const signer = new Keypair()
         const wrongSigner = new Keypair()

@@ -31,6 +31,7 @@ import {
     Keypair,
     PubKey,
     PrivKey,
+    VoteLeaf,
 } from 'maci-domainobjs'
 
 import {
@@ -93,8 +94,8 @@ describe('BatchProcessMessage', () => {
             const command = new Command(
                 bigInt(1),
                 keypair.pubKey,
-                bigInt(0),
                 bigInt(i),
+                new VoteLeaf(bigInt(0), bigInt(0)),
                 bigInt(i),
                 genRandomSalt(),
             )

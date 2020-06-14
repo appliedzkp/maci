@@ -13,6 +13,7 @@ import {
     PrivKey,
     Keypair,
     Command,
+    VoteLeaf,
 } from 'maci-domainobjs'
 
 import {
@@ -249,7 +250,8 @@ describe('signup and publish CLI subcommands', () => {
     describe('The publish subcommand', () => {
 
         const voteOptionIndex = 0
-        const newVoteWeight = 9
+        const posVoteWeight = 9
+        const negVoteWeight = 0
         const nonce = 0
         const salt = '0x0333333333333333333333333333333333333333333333333333333333333333'
 
@@ -271,8 +273,9 @@ describe('signup and publish CLI subcommands', () => {
                 ` -d ${userPrivKey}` +
                 ` -x ${maciAddress}` +
                 ` -i ${stateIndex}` +
-                ` -v ${voteOptionIndex}` +
-                ` -w ${newVoteWeight}` +
+                ` -vi ${voteOptionIndex}` +
+                ` -w ${posVoteWeight}` +
+                ` -v ${negVoteWeight}` +
                 ` -n ${nonce}` +
                 ` -s ${salt}`
 
@@ -287,7 +290,7 @@ describe('signup and publish CLI subcommands', () => {
                 bigInt(stateIndex),
                 userKeypair.pubKey,
                 bigInt(voteOptionIndex),
-                bigInt(newVoteWeight),
+                new VoteLeaf(bigInt(posVoteWeight), bigInt(negVoteWeight)),
                 bigInt(nonce),
                 bigInt(salt),
             )
@@ -324,8 +327,9 @@ describe('signup and publish CLI subcommands', () => {
                 ` -d ${userPrivKey}` +
                 ` -x 0xxx` +
                 ` -i ${stateIndex}` +
-                ` -v ${voteOptionIndex}` +
-                ` -w ${newVoteWeight}` +
+                ` -vi ${voteOptionIndex}` +
+                ` -w ${posVoteWeight}` +
+                ` -v ${negVoteWeight}` +
                 ` -n ${nonce}` +
                 ` -s ${salt}`
 
@@ -340,8 +344,9 @@ describe('signup and publish CLI subcommands', () => {
                 ` -d ${userPrivKey}` +
                 ` -x 0x0000000000000000000000000000000000000000` +
                 ` -i ${stateIndex}` +
-                ` -v ${voteOptionIndex}` +
-                ` -w ${newVoteWeight}` +
+                ` -vi ${voteOptionIndex}` +
+                ` -w ${posVoteWeight}` +
+                ` -v ${negVoteWeight}` +
                 ` -n ${nonce}` +
                 ` -s ${salt}`
 
@@ -356,8 +361,9 @@ describe('signup and publish CLI subcommands', () => {
                 ` -d 0x` +
                 ` -x ${maciAddress}` +
                 ` -i ${stateIndex}` +
-                ` -v ${voteOptionIndex}` +
-                ` -w ${newVoteWeight}` +
+                ` -vi ${voteOptionIndex}` +
+                ` -w ${posVoteWeight}` +
+                ` -v ${negVoteWeight}` +
                 ` -n ${nonce}` +
                 ` -s ${salt}`
 
@@ -372,8 +378,9 @@ describe('signup and publish CLI subcommands', () => {
                 ` -d ${userPrivKey}` +
                 ` -x ${maciAddress}` +
                 ` -i -1` +
-                ` -v ${voteOptionIndex}` +
-                ` -w ${newVoteWeight}` +
+                ` -vi ${voteOptionIndex}` +
+                ` -w ${posVoteWeight}` +
+                ` -v ${negVoteWeight}` +
                 ` -n ${nonce}` +
                 ` -s ${salt}`
 
@@ -388,8 +395,9 @@ describe('signup and publish CLI subcommands', () => {
                 ` -d ${userPrivKey}` +
                 ` -x ${maciAddress}` +
                 ` -i 999` +
-                ` -v ${voteOptionIndex}` +
-                ` -w ${newVoteWeight}` +
+                ` -vi ${voteOptionIndex}` +
+                ` -w ${posVoteWeight}` +
+                ` -v ${negVoteWeight}` +
                 ` -n ${nonce}` +
                 ` -s ${salt}`
 
@@ -404,8 +412,9 @@ describe('signup and publish CLI subcommands', () => {
                 ` -d ${userPrivKey}` +
                 ` -x ${maciAddress}` +
                 ` -i ${stateIndex}` +
-                ` -v -1` +
-                ` -w ${newVoteWeight}` +
+                ` -vi -1` +
+                ` -w ${posVoteWeight}` +
+                ` -v ${negVoteWeight}` +
                 ` -n ${nonce}` +
                 ` -s ${salt}`
 
@@ -420,8 +429,9 @@ describe('signup and publish CLI subcommands', () => {
                 ` -d ${userPrivKey}` +
                 ` -x ${maciAddress}` +
                 ` -i ${stateIndex}` +
-                ` -v 99999` +
-                ` -w ${newVoteWeight}` +
+                ` -vi 99999` +
+                ` -w ${posVoteWeight}` +
+                ` -v ${negVoteWeight}` +
                 ` -n ${nonce}` +
                 ` -s ${salt}`
 
@@ -436,8 +446,9 @@ describe('signup and publish CLI subcommands', () => {
                 ` -d ${userPrivKey}` +
                 ` -x ${maciAddress}` +
                 ` -i ${stateIndex}` +
-                ` -v ${voteOptionIndex}` +
-                ` -w ${newVoteWeight}` +
+                ` -vi ${voteOptionIndex}` +
+                ` -w ${posVoteWeight}` +
+                ` -v ${negVoteWeight}` +
                 ` -n -1` +
                 ` -s ${salt}`
 
@@ -452,8 +463,9 @@ describe('signup and publish CLI subcommands', () => {
                 ` -d ${userPrivKey}` +
                 ` -x ${maciAddress}` +
                 ` -i ${stateIndex}` +
-                ` -v ${voteOptionIndex}` +
-                ` -w ${newVoteWeight}` +
+                ` -vi ${voteOptionIndex}` +
+                ` -w ${posVoteWeight}` +
+                ` -v ${negVoteWeight}` +
                 ` -n ${nonce}` +
                 ` -s 0xx`
             const output = exec(publishCommand).stderr
@@ -467,12 +479,45 @@ describe('signup and publish CLI subcommands', () => {
                 ` -d ${userPrivKey}` +
                 ` -x ${maciAddress}` +
                 ` -i ${stateIndex}` +
-                ` -v ${voteOptionIndex}` +
-                ` -w ${newVoteWeight}` +
+                ` -vi ${voteOptionIndex}` +
+                ` -w ${posVoteWeight}` +
+                ` -v ${negVoteWeight}` +
                 ` -n ${nonce}` +
                 ` -s 0x${bigInt(SNARK_FIELD_SIZE).toString(16)}`
             const output = exec(publishCommand).stderr
             expect(output).toEqual('Error: the salt should less than the BabyJub field size\n')
+        })
+
+        it('should reject an oversized positive vote weight', async () => {
+            const publishCommand = `node ../cli/build/index.js publish` +
+                ` -sk ${userKeypair.privKey.serialize()}` +
+                ` -p ${userKeypair.pubKey.serialize()}` +
+                ` -d ${userPrivKey}` +
+                ` -x ${maciAddress}` +
+                ` -i ${stateIndex}` +
+                ` -vi ${voteOptionIndex}` +
+                ` -w ${bigInt('0x100000000000000000000000000000000000000000000000000000000000000')}` +
+                ` -v ${negVoteWeight}` +
+                ` -n ${nonce}` +
+                ` -s ${salt}`
+            const output = exec(publishCommand).stderr
+            expect(output).toEqual('Error: the positive vote weight is too large\n')
+        })
+
+        it('should reject an oversized negative vote weight', async () => {
+            const publishCommand = `node ../cli/build/index.js publish` +
+                ` -sk ${userKeypair.privKey.serialize()}` +
+                ` -p ${userKeypair.pubKey.serialize()}` +
+                ` -d ${userPrivKey}` +
+                ` -x ${maciAddress}` +
+                ` -i ${stateIndex}` +
+                ` -vi ${voteOptionIndex}` +
+                ` -w ${posVoteWeight}` +
+                ` -v ${bigInt('0x100000000000000000000000000000000000000000000000000000000000000')}` +
+                ` -n ${nonce}` +
+                ` -s ${salt}`
+            const output = exec(publishCommand).stderr
+            expect(output).toEqual('Error: the negative vote weight is too large\n')
         })
     })
 })
