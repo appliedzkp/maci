@@ -1,14 +1,15 @@
 require('module-alias/register')
 import * as ethers from 'ethers'
-import * as argparse from 'argparse' 
-import * as fs from 'fs' 
+import * as argparse from 'argparse'
+import * as fs from 'fs'
 import * as path from 'path'
 import * as etherlime from 'etherlime-lib'
 import { config } from 'maci-config'
 import { genPubKey, bigInt } from 'maci-crypto'
 import { PubKey } from 'maci-domainobjs'
 import { genAccounts, genTestAccounts } from './accounts'
-const MiMC = require('@maci-contracts/compiled/MiMC.json')
+const PoseidonT3 = require('@maci-contracts/compiled/PoseidonT3.json')
+const PoseidonT6 = require('@maci-contracts/compiled/PoseidonT6.json')
 const SignUpToken = require('@maci-contracts/compiled/SignUpToken.json')
 const SignUpTokenGatekeeper = require('@maci-contracts/compiled/SignUpTokenGatekeeper.json')
 const FreeForAllSignUpGatekeeper = require('@maci-contracts/compiled/FreeForAllGatekeeper.json')
@@ -112,14 +113,17 @@ const deployMaci = async (
     coordinatorPubKey?: PubKey,
     quiet = false,
 ) => {
-    log('Deploying MiMC', quiet)
+    log('Deploying Poseidon', quiet)
 
     if (!coordinatorPubKey) {
         const p = genPubKey(bigInt(config.maci.coordinatorPrivKey))
         coordinatorPubKey = new PubKey(p)
     }
 
-    const mimcContract = await deployer.deploy(MiMC, {})
+    log('Deploying Poseidon T3', quiet)
+    const PoseidonT3Contract = await deployer.deploy(PoseidonT3, {})
+    log('Deploying Poseidon T6', quiet)
+    const PoseidonT6Contract = await deployer.deploy(PoseidonT6, {})
 
     log('Deploying BatchUpdateStateTreeVerifier', quiet)
     const batchUstVerifierContract = await deployer.deploy(BatchUpdateStateTreeVerifier, {})
@@ -134,7 +138,10 @@ const deployMaci = async (
 
     const maciContract = await deployer.deploy(
         MACI,
-        { MiMC: mimcContract.contractAddress },
+        {
+            PoseidonT3: PoseidonT3Contract.contractAddress,
+            PoseidonT6: PoseidonT6Contract.contractAddress
+        },
         { stateTreeDepth, messageTreeDepth, voteOptionTreeDepth },
         {
             tallyBatchSize: quadVoteTallyBatchSize,
@@ -160,7 +167,8 @@ const deployMaci = async (
     return {
         batchUstVerifierContract,
         quadVoteTallyVerifierContract,
-        mimcContract,
+        PoseidonT3Contract,
+        PoseidonT6Contract,
         maciContract,
     }
 }
@@ -176,7 +184,7 @@ const main = async () => {
 
     console.log('Using account', admin.address)
 
-    const parser = new argparse.ArgumentParser({ 
+    const parser = new argparse.ArgumentParser({
         description: 'Deploy all contracts to an Ethereum network of your choice'
     })
 
@@ -236,7 +244,8 @@ const main = async () => {
     )
 
     const {
-        mimcContract,
+        PoseidonT3Contract,
+        PoseidonT6Contract,
         maciContract,
         batchUstVerifierContract,
         quadVoteTallyVerifierContract,
@@ -247,7 +256,8 @@ const main = async () => {
     )
 
     const addresses = {
-        MiMC: mimcContract.contractAddress,
+        PoseidonT3: PoseidonT3Contract.contractAddress,
+        PoseidonT6: PoseidonT6Contract.contractAddress,
         BatchUpdateStateTreeVerifier: batchUstVerifierContract.contractAddress,
         QuadraticVoteTallyVerifier: quadVoteTallyVerifierContract.contractAddress,
         MACI: maciContract.contractAddress,

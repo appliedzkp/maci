@@ -1,4 +1,3 @@
-include "./hasher.circom";
 include "../node_modules/circomlib/circuits/bitify.circom";
 include "../node_modules/circomlib/circuits/escalarmulfix.circom";
 

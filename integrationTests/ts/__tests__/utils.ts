@@ -1,8 +1,6 @@
 import * as shell from 'shelljs'
 
-const calcTreeDepthFromMaxLeaves = (maxLeaves: number) => {
-    return Math.ceil(Math.log(maxLeaves) / Math.log(2))
-}
+import { calcTreeDepthFromMaxLeaves } from 'maci-cli'
 
 const exec = (command: string) => {
     return shell.exec(command, { silent: true })

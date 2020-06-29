@@ -66,7 +66,7 @@ MACI: 0xE28158eCFde143e2536761c3254C7C31efd97271
 | Prompt for the deployer's Ethereum private key | `-dp` or `--prompt-for-deployer-privkey` | If specified, ignores `-d / --deployer-privkey` and prompts the coordinator to input their Ethereum private key |
 | Maximum number of users | `-u` or `--max-users` | Default: 15 |
 | Maximum number of messages | `-m` or `--max-messages` | Default: 15 |
-| Maximum number of vote options | `-v` or `--max-vote-options` | Default: 3 |
+| Maximum number of vote options | `-v` or `--max-vote-options` | Default: 25 |
 | Sign-up duration | `-s` or `--signup-duration` | The sign-up duration, in seconds. Default: 3600. |
 | Voting duration | `-o` or `--voting-duration` | The voting duration, in seconds. Default: 3600. |
 | Initial voice credits | `-c` or `--initial-voice-credits` | Default: 100 |
@@ -102,16 +102,8 @@ automatically resume a job halfway done.
 
 `node build/index.js genMaciKeypair <options>`
 
-| Option | Flags | About |
-|-|-|-|
-| Passphrase | `-p` or `--passphrase` | If unspecified, this command will randomly generate a private key and its associated public key |
-
 The output of this command is a serialised private key and serialised
 public key.
-
-If a passphrase is specified, this command will apply a cryptographic
-key-stretching algorithm to it and produce a private key. For security
-reasons, the passphrase must be at least 32 characters long.
 
 ### User: Generate MACI public key
 
@@ -119,7 +111,7 @@ reasons, the passphrase must be at least 32 characters long.
 
 | Option | Flags | About |
 |-|-|-|
-| Passphrase | `-sk` or `--privKey` | A serialised private key |
+| Private key | `-sk` or `--privKey` | A serialised private key |
 
 The output of this command is a serialised public key derived from the given private key.
 
@@ -192,4 +184,307 @@ Fields that the coordinator has to set:
 | Prompt for the coordinator's Ethereum private key | `-dp` or `--prompt-for-eth-privkey` | If specified, ignores `-d / --eth-privkey` and prompts the coordinator to input their Ethereum private key |
 | Repeat until all votes have been processed | `-r` or `--repeat` | Default: false |
 | The serialised state leaf preimage at index 0 | `-z` or `--leaf-zero` | |
-| The current result salt | `-c` or `--current-salt` | The secret salt which is hashed along with the current results to produce the current result commitment input to the snark. |
+| The current results salt | `-c` or `--current-results-salt` | The secret salt which is hashed along with the current results to produce the current result commitment input to the snark. |
+| The current total voice credits salt | `-tvc` or `--current-total-vc-salt` | The secret salt which is hashed along with the current total number of spent voice credits to produce the current total voice credits commitment input to the snark. |
+| The current per vote option voice credits salt | `-pvc` or `--current-per-vo-vc-salt` | The secret salt which is hashed along with the current total number of spent voice credits per vote option to produce the current total voice credits commitment input to the snark. |
+| The final tally file | `-t` or `--tally-file` | A filepath in which to save the final vote tally and salt. |
+
+### Anyone: Verify a vote tally
+
+`node build/index.js verify <options>`
+
+Fields to set:
+
+| Option | Flags | About |
+|-|-|-|
+| The final tally file | `-t` or `--tally-file` | The final tally file created by the `tally` subcommand. |
+
+## Demonstration
+
+This section contains a sequence of commands which will be useful for a live
+demonstration. They simulate the following scenario:
+
+1. Alice votes for Party A
+2. Alice changes her key
+3. Eve tries to bribe Alice to change her vote to Party B
+4. Alice submits an invalid vote for Party B
+5. The coordinator processes the votes and computes the final tally
+6. The expected result is: Party A has 1 vote and Party B has 0 votes. Alice’s
+   invalid vote was not counted, and Eve had no way to tell.
+
+**Coordinator: create keypair**
+
+```
+node ./build/index.js genMaciKeypair
+```
+
+Example output:
+
+```
+Private key: macisk.8715ab59a3e88a7ceec80f214ec24a95287ef2cb399a329b6964a87f85cf51c
+Public key:  macipk.f2accdb00311dc1af2ec6e00505e6bf62dcc0614eac2276fa01846dc7bad840a
+
+Please store your private key in a safe place and do not reveal it to anyone.
+```
+
+**Alice: create keypair**
+
+```
+node ./build/index.js genMaciKeypair
+```
+
+Example output:
+
+```
+Private key: macisk.53c8bc722a9f9d4c7bd478c8c8b01177f82d9c68d1ce15078e93ea84f198644
+Public key:  macipk.a200c5991d633c0aefbe594de2d9cf8d1afbfbc935a1a39b0a7edc93b5a1abad
+
+Please store your private key in a safe place and do not reveal it to anyone.
+```
+
+**Coordinator: create election**
+
+```
+node ./build/index.js create -d 0xc87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3 \
+	-sk macisk.8715ab59a3e88a7ceec80f214ec24a95287ef2cb399a329b6964a87f85cf51c \
+	-e http://localhost:8545 \
+	-s 15 \
+	-o 60 \
+	-bm 4 \
+	-bv 4
+```
+
+Example output:
+
+```
+MACI: 0x2C2B9C9a4a25e24B174f26114e8926a9f2128FE4
+```
+
+**Alice: sign up**
+
+```
+node ./build/index.js signup -d 0xc87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3 \
+	-e http://localhost:8545 \
+	-p macipk.a200c5991d633c0aefbe594de2d9cf8d1afbfbc935a1a39b0a7edc93b5a1abad \
+	-x 0x2C2B9C9a4a25e24B174f26114e8926a9f2128FE4
+```
+
+Example output:
+
+```
+Transaction hash: 0x3cd2e6e805b54a6dfaff840dcf496092447400a1b26ba9f3c31bd78c3fe15723
+State index: 1
+```
+
+**Alice: vote for party A**
+
+```
+node ./build/index.js publish -d 0xc87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3 \
+	-e http://localhost:8545 \
+	-x 0x2C2B9C9a4a25e24B174f26114e8926a9f2128FE4 \
+	-sk macisk.53c8bc722a9f9d4c7bd478c8c8b01177f82d9c68d1ce15078e93ea84f198644 \
+	-p macipk.a200c5991d633c0aefbe594de2d9cf8d1afbfbc935a1a39b0a7edc93b5a1abad \
+	-i 1 \
+	-v 0 \
+	-w 9 \
+	-n 1
+```
+
+Example output:
+
+```
+Transaction hash: 0xc52ff70c3bbcc91457fd61738cd00d09d8bac96c56094910e275e474132ff741
+Ephemeral private key: macisk.1e3233eec8d0ccf722f2576ba5cb1b361939f0617ac3583a3eb025e4944b0e40
+```
+
+**Alice: create new key**
+
+```
+node ./build/index.js genMaciKeypair
+```
+
+Example output:
+
+```
+Private key: macisk.ff3ae0e7855e4c62237e2b7c72de109865f087bd5f792cf4589d3cdc495d8f2
+Public key:  macipk.90833965a98a890dc0ddb32f95cd077a32d235fc6222fe9fea8aad9fd17feaa9
+
+Please store your private key in a safe place and do not reveal it to anyone.
+```
+
+**Alice: change key**
+
+```
+node ./build/index.js publish -d 0xc87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3 \
+	-e http://localhost:8545 \
+	-x 0x2C2B9C9a4a25e24B174f26114e8926a9f2128FE4 \
+	-sk macisk.53c8bc722a9f9d4c7bd478c8c8b01177f82d9c68d1ce15078e93ea84f198644 \
+	-p macipk.90833965a98a890dc0ddb32f95cd077a32d235fc6222fe9fea8aad9fd17feaa9 \
+	-i 1 \
+	-v 0 \
+	-w 9 \
+	-n 2
+```
+
+Example output:
+
+```
+Transaction hash: 0x812dc6345e2515bced4f15e7ca3842d3d343c22f6729fe3216b946fa97bffc1e
+Ephemeral private key: macisk.24115d8d585b7dd8f7ea1975668b3d4f34dcf8b1bcc6617bdefbed7e41b89846
+```
+
+**Alice: vote for party B with old key**
+
+```
+node ./build/index.js publish -d 0xc87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3 \
+	-e http://localhost:8545 \
+	-x 0x2C2B9C9a4a25e24B174f26114e8926a9f2128FE4 \
+	-sk macisk.53c8bc722a9f9d4c7bd478c8c8b01177f82d9c68d1ce15078e93ea84f198644 \
+	-p macipk.a200c5991d633c0aefbe594de2d9cf8d1afbfbc935a1a39b0a7edc93b5a1abad \
+	-i 1 \
+	-v 1 \
+	-w 9 \
+	-n 3
+```
+
+Example output:
+
+```
+Transaction hash: 0x45ae379b056a6fc647a3718bd356268a1bcda35e6645bb7a1aba44cb76418c98
+Ephemeral private key: macisk.2b23e978301d029e46117ef0138f860e277ffed0f008712f3d7ca2c40f1a6768
+```
+
+**Coordinator: process all messages** 
+```
+NODE_OPTIONS=--max-old-space-size=4096 node ./build/index.js process \
+    -d 0xc87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3 \
+	-e http://localhost:8545 \
+	-x 0x2C2B9C9a4a25e24B174f26114e8926a9f2128FE4 \
+	-sk macisk.8715ab59a3e88a7ceec80f214ec24a95287ef2cb399a329b6964a87f85cf51c \
+	-r
+```
+
+Example output:
+
+```
+Processed batch starting at index 0
+Transaction hash: 0xbd1bbe86cd4fc72f34911220db428751e8a483b3afcc9d30c1a15989a7b6a031
+Random state leaf: <RANDOM STATE LEAF>
+```
+
+**Coordinator: tally all votes**
+
+```
+NODE_OPTIONS=--max-old-space-size=4096 node ./build/index.js tally \
+    -d 0xc87509a1c067bbde78beb793e6fa76530b6382a4c0241e5e4a9ec0a0f44dc0d3 \
+	-e http://localhost:8545 \
+	-x 0x2C2B9C9a4a25e24B174f26114e8926a9f2128FE4 \
+	-sk macisk.8715ab59a3e88a7ceec80f214ec24a95287ef2cb399a329b6964a87f85cf51c \
+	-r \
+	-c 0x0 \
+	-tvc 0x0 \
+	-pvc 0x0 \
+	-t tally.json \
+	-z <PASTE RANDOM STATE LEAF HERE>
+```
+
+Example output:
+
+```
+Transaction hash: 0x9ef0ab94d534650445c4ff748a43eacdedff1602929bd6a1bd568573374ddca2
+Current results salt: 0xa54b75db545fcda278ce882cae90d069c6fcf81368778264550d9b66af05a42
+Result commitment: 0x25deb6f675ed4f08742e1776eee130c627d168106fd813627963b241c1ba0754
+```
+
+The file `tally.json` will now contain something like the following:
+
+```json
+{
+    "provider": "http://localhost:8545",
+    "maci": "0x2C2B9C9a4a25e24B174f26114e8926a9f2128FE4",
+    "results": {
+        "commitment": "0x1cd0ec2789abceb908b06f6a74c26a848e209011ec41b3e5028bb7aeff2bdeb2",
+        "tally": [
+            "9",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0"
+        ],
+        "salt": "0x2d7f1744185507a529fdb32dec920bfdaf825b0fdba5b66661a40a71beac3b46"
+    },
+    "totalVoiceCredits": {
+        "spent": "81",
+        "commitment": "0x2d55a42ec1da99227125cf9562aa91aad12e2f1387ccf3411da79b0a953d69a6",
+        "salt": "0xfc95a102f3c66d92d7a5700f1e12a6f2325c54a10efa0e1178cc21b67f0d97c"
+    },
+    "totalVoiceCreditsPerVoteOption": {
+        "commitment": "0x18526f481cf2476543c8dcc3762f3a54af8e217d3d048810856623367ef4ba14",
+        "tally": [
+            "81",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0",
+            "0"
+        ],
+        "salt": "0x1f17d2ff16b9791ef4b1849bfccf420b9fece161e419ad4f8b1ef726c62e3943"
+    }
+}
+```
+
+Anyone can now run `verify` to check if the tally is correct:
+
+```bash
+node build/index.js verify -t tally.json
+```
+
+Example output:
+
+```
+The results commitment in the specified file is correct given the tally and salt
+The total spent voice credit commitment in the specified file is correct given the tally and salt
+The per vote option spent voice credit commitment in the specified file is correct given the tally and salt
+The results commitment in the MACI contract on-chain is valid
+The total spent voice credit commitment in the MACI contract on-chain is valid
+The per vote option spent voice credit commitment in the MACI contract on-chain is valid
+```

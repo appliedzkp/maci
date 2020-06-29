@@ -22,7 +22,6 @@
 pragma solidity ^0.5.0;
 
 import { SnarkConstants } from "./SnarkConstants.sol";
-import { MiMC } from "./MiMC.sol";
 import { Hasher } from "./Hasher.sol";
 import { Ownable } from "@openzeppelin/contracts/ownership/Ownable.sol";
 

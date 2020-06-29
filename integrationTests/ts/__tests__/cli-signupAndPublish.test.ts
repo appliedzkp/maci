@@ -61,6 +61,7 @@ const maciState = new MaciState(
     maxVoteOptions,
 )
 
+debugger
 describe('signup and publish CLI subcommands', () => {
     let maciContract
 

@@ -1,7 +1,8 @@
-
 import { config } from 'maci-config'
 import { 
+    genPerVOSpentVoiceCreditsCommitment,
     genTallyResultCommitment,
+    genSpentVoiceCreditsCommitment,
     MaciState,
 } from 'maci-core'
 import {
@@ -30,8 +31,8 @@ const randomRange = (min: number, max: number) => {
   return bigInt(Math.floor(Math.random() * (max - min) + min))
 }
 
-
 const coordinator = new Keypair()
+const voteWeight = bigInt(9)
 
 describe('Quadratic vote tallying circuit', () => {
     let circuit
@@ -57,7 +58,6 @@ describe('Quadratic vote tallying circuit', () => {
 
         // Publish and process a message
         const voteOptionIndex = randomRange(0, voteOptionsMaxIndex)
-        const voteWeight = bigInt(9)
         const command = new Command(
             bigInt(1),
             user.pubKey,
@@ -88,11 +88,17 @@ describe('Quadratic vote tallying circuit', () => {
         // Calculate the vote tally for a batch of state leaves
         const tally = maciState.computeBatchVoteTally(startIndex, quadVoteTallyBatchSize)
 
-        expect(tally.length.toString()).toEqual((2 ** voteOptionTreeDepth).toString())
+        expect(tally.length.toString()).toEqual((5 ** voteOptionTreeDepth).toString())
         expect(tally[voteOptionIndex].toString()).toEqual(voteWeight.toString())
 
         const currentResultsSalt = bigInt(0)
         const newResultsSalt = genRandomSalt()
+
+        const currentSpentVoiceCreditsSalt = bigInt(0)
+        const newSpentVoiceCreditsSalt = genRandomSalt()
+
+        const currentPerVOSpentVoiceCreditsCommitment = bigInt(0)
+        const newPerVOSpentVoiceCreditsSalt = genRandomSalt()
 
         // Generate circuit inputs
         const circuitInputs 
@@ -101,15 +107,48 @@ describe('Quadratic vote tallying circuit', () => {
                 quadVoteTallyBatchSize,
                 currentResultsSalt,
                 newResultsSalt,
+                currentSpentVoiceCreditsSalt,
+                newSpentVoiceCreditsSalt,
+                currentPerVOSpentVoiceCreditsCommitment,
+                newPerVOSpentVoiceCreditsSalt,
             )
 
-        expect(circuitInputs.stateLeaves.length).toEqual(4)
+        expect(circuitInputs.stateLeaves.length).toEqual(quadVoteTallyBatchSize)
 
         const witness = circuit.calculateWitness(stringifyBigInts(circuitInputs))
         expect(circuit.checkWitness(witness)).toBeTruthy()
-        const result = witness[circuit.getSignalIdx('main.newResultsCommitment')]
-        const expectedCommitment = genTallyResultCommitment(tally, newResultsSalt, voteOptionTreeDepth)
 
-        expect(result.toString()).toEqual(expectedCommitment.toString())
+        // Check the result tally commitment
+        const expectedResultsCommitmentOutput = witness[circuit.getSignalIdx('main.newResultsCommitment')]
+        const expectedResultsCommitment = genTallyResultCommitment(tally, newResultsSalt, voteOptionTreeDepth)
+
+        expect(expectedResultsCommitmentOutput.toString()).toEqual(expectedResultsCommitment.toString())
+
+        // Check the total spent voice credit commitment
+        const expectedSpentVoiceCreditsCommitmentOutput =
+            witness[circuit.getSignalIdx('main.newSpentVoiceCreditsCommitment')]
+
+        const expectedSpentVoiceCreditsCommitment = genSpentVoiceCreditsCommitment(
+            voteWeight * voteWeight,
+            newSpentVoiceCreditsSalt,
+        )
+        expect(expectedSpentVoiceCreditsCommitmentOutput.toString())
+            .toEqual(expectedSpentVoiceCreditsCommitment.toString())
+
+        // Check the total spent voice credit commitment per vote option
+        const perVOSpentVoiceCredits = maciState.computeBatchPerVOSpentVoiceCredits(
+            startIndex,
+            quadVoteTallyBatchSize,
+        )
+        const expectedPerVOSpentVoiceCreditsCommitment = genPerVOSpentVoiceCreditsCommitment(
+            perVOSpentVoiceCredits,
+            newPerVOSpentVoiceCreditsSalt,
+            voteOptionTreeDepth,
+        )
+        const expectedPerVOSpentVoiceCreditsCommitmentOutput =
+            witness[circuit.getSignalIdx('main.newPerVOSpentVoiceCreditsCommitment')]
+
+        expect(expectedPerVOSpentVoiceCreditsCommitmentOutput.toString())
+            .toEqual(expectedPerVOSpentVoiceCreditsCommitment.toString())
     })
 })

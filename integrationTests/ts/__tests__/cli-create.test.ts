@@ -15,12 +15,21 @@ import {
 import { config } from 'maci-config'
 
 import { exec } from './utils'
+import {
+    maxUsers,
+    maxMessages,
+    maxVoteOptions,
+    signupDuration,
+    votingDuration,
+    messageBatchSize,
+    tallyBatchSize,
+    initialVoiceCredits,
+    stateTreeDepth,
+    messageTreeDepth,
+    voteOptionTreeDepth,
+} from './params'
 
 const accounts = genTestAccounts(1)
-
-const calcTreeDepthFromMaxLeaves = (maxLeaves: number) => {
-    return Math.ceil(Math.log(maxLeaves) / Math.log(2))
-}
 
 describe('create CLI subcommand', () => {
 
@@ -30,14 +39,6 @@ describe('create CLI subcommand', () => {
         const providerUrl = config.get('chain.url')
         const maciPrivkey = coordinatorKeypair.privKey.serialize()
         const deployerPrivKey = accounts[0].privateKey
-        const maxUsers = 2 ** 4 - 1
-        const maxMessages = 2 ** 4 - 1
-        const maxVoteOptions = 15
-        const signupDuration = 600
-        const votingDuration = 1
-        const messageBatchSize = 4
-        const tallyBatchSize = 4
-        const initialVoiceCredits = 1000
 
         const command = `node ../cli/build/index.js create` +
             ` -d ${deployerPrivKey} -sk ${maciPrivkey}` +
@@ -65,10 +66,6 @@ describe('create CLI subcommand', () => {
             maciContractAbi,
             provider,
         )
-
-        const stateTreeDepth = calcTreeDepthFromMaxLeaves(maxUsers)
-        const messageTreeDepth = calcTreeDepthFromMaxLeaves(maxMessages)
-        const voteOptionTreeDepth = calcTreeDepthFromMaxLeaves(maxVoteOptions)
 
         // Check if the on-chain state tree root and message tree roots are
         // correct. This tells us that their tree depths were set correctly.

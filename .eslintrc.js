@@ -8,6 +8,8 @@ module.exports = {
     'plugin:@typescript-eslint/recommended'
   ],
   rules: {
+    'no-console': 'off',
+    'no-debugger': 'off',
     'no-prototype-builtins': 'off',
     'no-constant-condition': ['error', { checkLoops: false }],
     'no-empty': ['error', { allowEmptyCatch: true }],

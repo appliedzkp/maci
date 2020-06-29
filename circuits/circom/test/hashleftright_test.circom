@@ -1,3 +1,3 @@
-include "../hasher.circom"
+include "../hasherPoseidon.circom"
 
 component main = HashLeftRight();

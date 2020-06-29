@@ -12,8 +12,8 @@
         "test-cli-create-debug": "node --inspect-brk ./node_modules/.bin/jest cli-create.test.ts",
         "test-cli-signupAndPublish": "jest cli-signupAndPublish.test.ts",
         "test-cli-signupAndPublish-debug": "node --inspect-brk ./node_modules/.bin/jest cli-signupAndPublish.test.ts",
-        "test-cli-processTallyProve": "NODE_OPTIONS=--max-old-space-size=4096 jest cli-processTallyProve.test.ts",
-        "test-cli-processTallyProve-debug": "node --inspect-brk ./node_modules/.bin/jest cli-processTallyProve.test.ts",
+        "test-cli-processTallyVerify": "NODE_OPTIONS=--max-old-space-size=4096 jest cli-processTallyVerify.test.ts",
+        "test-cli-processTallyVerify-debug": "node --inspect-brk ./node_modules/.bin/jest cli-processTallyVerify.test.ts",
         "test-cli-genMaciKeypair": "jest cli-genMaciKeypair.test.ts",
         "test-cli-genMaciKeypair-debug": "node --inspect-brk ./node_modules/.bin/jest cli-genMaciKeypair.test.ts",
         "test-cli-genMaciPubkey": "jest cli-genMaciPubkey.test.ts",
@@ -40,6 +40,7 @@
         "maci-crypto": "1.0.0",
         "maci-core": "1.0.0",
         "maci-contracts": "1.0.0",
-        "maci-domainobjs": "1.0.0"
+        "maci-domainobjs": "1.0.0",
+        "maci-cli": "1.0.0"
     }
 }

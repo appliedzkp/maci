@@ -7,7 +7,7 @@ import {
 import {
     bigInt,
     SnarkBigInt,
-    IncrementalMerkleTree,
+    IncrementalQuinTree,
 } from 'maci-crypto'
 
 /*
@@ -68,7 +68,7 @@ class User {
         _voteOptionTreeDepth: number,
     ): User => {
         const votes: SnarkBigInt[] = []
-        for (let i = 0; i < _voteOptionTreeDepth; i ++) {
+        for (let i = 0; i < 5 ** _voteOptionTreeDepth; i ++) {
             votes.push(bigInt(0))
         }
 
@@ -87,7 +87,7 @@ class User {
     public genStateLeaf = (
         _voteOptionTreeDepth: number,
     ): StateLeaf => {
-        const voteOptionTree = new IncrementalMerkleTree(
+        const voteOptionTree = new IncrementalQuinTree(
             _voteOptionTreeDepth,
             bigInt(0),
         )

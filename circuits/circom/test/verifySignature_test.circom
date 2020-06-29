@@ -1,3 +1,3 @@
 include "../verify_signature.circom"
 
-component main = VerifySignature(7);
+component main = VerifySignature7();

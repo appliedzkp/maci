@@ -2,19 +2,9 @@ pragma experimental ABIEncoderV2;
 pragma solidity ^0.5.0;
 
 import { Hasher } from "./Hasher.sol";
+import { MACISharedObjs } from "./MACISharedObjs.sol";
 
-contract DomainObjs is Hasher {
-    uint8 constant MESSAGE_DATA_LENGTH = 10;
-    struct Message {
-        uint256 iv;
-        uint256[MESSAGE_DATA_LENGTH] data;
-    }
-
-    struct PubKey {
-        uint256 x;
-        uint256 y;
-    }
-
+contract DomainObjs is Hasher, MACISharedObjs {
     struct StateLeaf {
         PubKey pubKey;
         uint256 voteOptionTreeRoot;
@@ -30,7 +20,7 @@ contract DomainObjs is Hasher {
         plaintext[3] = _stateLeaf.voiceCreditBalance;
         plaintext[4] = _stateLeaf.nonce;
 
-        return hash(plaintext);
+        return hash5(plaintext);
     }
 
     function hashMessage(Message memory _message) public pure returns (uint256) {
@@ -42,6 +32,6 @@ contract DomainObjs is Hasher {
             plaintext[i+1] = _message.data[i];
         }
 
-        return hash(plaintext);
+        return hash11(plaintext);
     }
 }

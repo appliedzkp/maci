@@ -1,7 +1,7 @@
 {
     "name": "Happy path",
     "description": "Quarter tree, 1 batch, no bribers",
-    "numUsers": 3,
+    "numUsers": 5,
     "commands": [
         {
             "user": 0,
@@ -18,9 +18,23 @@
         {
             "user": 2,
             "voteOptionIndex": 2,
+            "voteWeight": 10,
+            "nonce": 1
+        },
+        {
+            "user": 3,
+            "voteOptionIndex": 3,
             "voteWeight": 1,
+            "nonce": 1
+        },
+        {
+            "user": 4,
+            "voteOptionIndex": 4,
+            "voteWeight": 10,
             "nonce": 1
         }
     ],
-    "expectedTally": [1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    "expectedTally": [1, 1, 10, 1, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    "expectedSpentVoiceCredits": [1, 1, 100, 1, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    "expectedTotalSpentVoiceCredits": 203
 }

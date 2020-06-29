@@ -5,10 +5,10 @@ import {
     encrypt,
     decrypt,
     sign,
-    hash,
+    hash5,
+    hash11,
     verifySignature,
     bigInt,
-    passphraseToPrivKey,
 } from '../'
 
 
@@ -34,8 +34,23 @@ describe('Cryptographic operations', () => {
 
     describe('Hashing', () => {
         it('The hash of a plaintext should be smaller than the snark field size', () => {
-            const h = hash(plaintext)
+            const h = hash5(plaintext)
             expect(h.lt(SNARK_FIELD_SIZE)).toBeTruthy()
+        })
+    })
+
+    describe('Hash11', () => {
+        it('Hashsing smaller array should work', () => {
+            const h = hash11([bigInt(1), bigInt(2), bigInt(3)])
+            expect(h.lt(SNARK_FIELD_SIZE)).toBeTruthy()
+        })
+        it('Hashsing more than 11 elements should throw', () => {
+            const arrayOf12: any[] = []
+            for (let i = 0; i < 12; i++) {
+                arrayOf12.push(bigInt(i))
+            }
+
+            expect(() => hash11(arrayOf12)).toThrow(TypeError)
         })
     })
 
@@ -49,13 +64,6 @@ describe('Cryptographic operations', () => {
             // TODO: Figure out if these checks are correct and enough
             expect(pubKey[0].lt(SNARK_FIELD_SIZE)).toBeTruthy()
             expect(pubKey[1].lt(SNARK_FIELD_SIZE)).toBeTruthy()
-        })
-
-        it('passphraseToPrivKey() should produce a valid private key', async () => {
-            const passphrase = 'hello world'
-            const privKey = await passphraseToPrivKey(passphrase)
-            expect(privKey.lt(SNARK_FIELD_SIZE)).toBeTruthy()
-            expect(privKey.toString(16)).toEqual('2b8194406b135f1296f454f450c374aee58693384ba4610da1e5acb88ccc80cc')
         })
     })
 

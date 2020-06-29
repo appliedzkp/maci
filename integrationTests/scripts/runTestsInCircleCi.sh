@@ -9,5 +9,5 @@ npm run test-cli-genMaciKeypair &&
 npm run test-cli-genMaciPubkey &&
 npm run test-cli-create &&
 npm run test-cli-signupAndPublish &&
-npm run test-cli-processTallyProve &&
+npm run test-cli-processTallyVerify &&
 npm run test-suites

@@ -13,7 +13,7 @@ import {
 } from 'maci-core'
 
 const DEPTH = 2
-const NUM_OPTIONS = 2 ** DEPTH
+const NUM_OPTIONS = 5 ** DEPTH
 
 const randVal = () => {
     return bigInt(Math.floor(Math.random() * 1000000000).toString())
