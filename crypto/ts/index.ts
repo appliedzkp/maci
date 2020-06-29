@@ -2,9 +2,8 @@ import * as assert from 'assert'
 import * as crypto from 'crypto'
 import * as ethers from 'ethers'
 import * as snarkjs from 'snarkjs'
-import * as argon2 from 'argon2'
-import { babyJub, eddsa, mimcsponge, mimc7 } from 'circomlib'
-import { IncrementalMerkleTree } from './IncrementalMerkleTree'
+import { babyJub, eddsa, mimcsponge, mimc7, poseidon } from 'circomlib'
+import { IncrementalQuinTree } from './IncrementalQuinTree'
 const stringifyBigInts: (obj: object) => object = snarkjs.stringifyBigInts
 const unstringifyBigInts: (obj: object) => object = snarkjs.unstringifyBigInts
 
@@ -40,6 +39,8 @@ const SNARK_FIELD_SIZE = snarkjs.bigInt(
     '21888242871839275222246405745257275088548364400416034343698204186575808495617'
 )
 
+const POSEIDON_SEED = 'poseidon'
+
 // A nothing-up-my-sleeve zero value
 // Should be equal to 5503045433092194285660061905880311622788666850989422096966288514930349325741
 const NOTHING_UP_MY_SLEEVE =
@@ -59,6 +60,42 @@ const buffer2BigInt = (b: Buffer): BigInt => {
     return snarkjs.bigInt('0x' + b.toString('hex'))
 }
 
+/* Poseidon parameters are generated from a script to meet the security requirements described in the papar.
+ * Check circuits/README.md for detail.
+ */
+interface PoseidonParams {
+    t: number;
+    roundFull: number;
+    roundPartial: number;
+    seed: string;
+}
+
+
+const POSEIDON_T3_PARAMS: PoseidonParams = {
+    t: 3,
+    roundFull: 8,
+    roundPartial: 49,
+    seed: POSEIDON_SEED
+}
+
+const POSEIDON_T6_PARAMS: PoseidonParams = {
+    t: 6,
+    roundFull: 8,
+    roundPartial: 50,
+    seed: POSEIDON_SEED
+}
+
+const poseidonCreateHash = (param: PoseidonParams) => {
+    return poseidon.createHash(param.t, param.roundFull, param.roundPartial, param.seed)
+}
+
+// Hash up to 2 elements
+const poseidonT3 = poseidonCreateHash(POSEIDON_T3_PARAMS)
+
+// Hash up to 5 elements
+const poseidonT6 = poseidonCreateHash(POSEIDON_T6_PARAMS)
+
+
 /*
  * A convenience function for to use mimcsponge to hash a Plaintext with
  * key 0 and require only 1 output
@@ -68,82 +105,50 @@ const hash = (plaintext: Plaintext): SnarkBigInt => {
     return mimcsponge.multiHash(plaintext, 0, 1)
 }
 
+const hash5 = (elements: Plaintext): SnarkBigInt => {
+    if (elements.length > 5) {
+        throw new Error(`elements length should not greater than 11, got ${elements.length}`)
+    }
+    return poseidonT6(elements)
+}
+
 /*
- * A convenience function for to use mimcsponge to hash a single SnarkBigInt
- * with key 0 and require only 1 output
+ * A convenience function for to use Poseidon to hash a Plaintext with
+ * no more than 11 elements
+ */
+const hash11 = (elements: Plaintext): SnarkBigInt => {
+    const elementLength = elements.length
+    if (elementLength > 11) {
+        throw new TypeError(`elements length should not greater than 11, got ${elementLength}`)
+    }
+    const elementsPadded = elements.slice()
+    if (elementLength < 11) {
+        for (let i = elementLength; i < 11; i++) {
+            elementsPadded.push(bigInt(0))
+        }
+    }
+    return poseidonT3([
+        poseidonT3([
+            poseidonT6(elementsPadded.slice(0, 5)),
+            poseidonT6(elementsPadded.slice(5, 10))
+        ])
+        , elementsPadded[10]
+    ])
+}
+
+/*
+ * A convenience function for to use poseidon to hash a single SnarkBigInt
  */
 const hashOne = (preImage: SnarkBigInt): SnarkBigInt => {
 
-    return mimcsponge.multiHash([preImage], 0, 1)
+    return poseidonT3([preImage, bigInt(0)])
 }
 
 /*
- * A convenience function for to use mimcsponge to hash two SnarkBigInts
- * with key 0 and require only 1 output
+ * A convenience function for to use poseidon to hash two SnarkBigInts
  */
 const hashLeftRight = (left: SnarkBigInt, right: SnarkBigInt): SnarkBigInt => {
-
-    return mimcsponge.multiHash([left, right], 0, 1)
-}
-
-/*
- * Given a passphrase and a nonce, generate an expensive Argon2id hash of the
- * concatenation of the passphrase and the nonce.
- * @param p The passphrase
- * @param nonce The nonce
- * @return A Promise which will resolve to a Buffer representation of the hash
- *         of p + nonce.toString()
- */
-const hashPassphrase = (p: string, nonce: number): Promise<Buffer> => {
-    // We set the salt to a constant value so that argon2.hash() becomes
-    // deterministic.
-
-    const SALT = Buffer.from('27864203c107e4b8c39e80eca12b7637', 'hex')
-    const options = {
-        type: argon2.argon2id,
-        timeCost: 30,
-        memoryCost: 40960,
-        raw: true,
-        salt: SALT,
-    }
-
-    // @ts-ignore
-    return argon2.hash(p + nonce.toString(), options)
-}
-
-/*
- * Given a passphrase, generate a BabyJub-compatible private key.
- * This function uses Argon2id to hash the passphrase and a nonce. If the hash
- * is not a valid BabyJub-compatible private key (i.e. it is greater than the
- * snark field size), it will increment the nonce and try again.
- * @param p The passphrase
- * @return A Promise which will resolve to a PrivKey
- */
-const passphraseToPrivKey = async (p: string): Promise<PrivKey> => {
-    let nonce = 0
-
-    const min = (
-        (snarkjs.bigInt(2).pow(snarkjs.bigInt(256))) - SNARK_FIELD_SIZE
-    ) % SNARK_FIELD_SIZE
-
-    let rand: SnarkBigInt
-
-    // Increment the nonce until the hash of (p + nonce) is within range
-    while (true) {
-        const hash = await hashPassphrase(p, nonce)
-        rand = snarkjs.bigInt('0x' + hash.toString('hex'))
-
-        if (rand >= min) {
-            break
-        }
-
-        nonce ++
-    }
-
-    const privKey: PrivKey = rand % SNARK_FIELD_SIZE
-    assert(privKey < SNARK_FIELD_SIZE)
-
-    return privKey
+    return poseidonT3([left, right])
 }
 
 /*
@@ -303,7 +308,7 @@ const encrypt = (
         iv,
         data: plaintext.map((e: SnarkBigInt, i: number): SnarkBigInt => {
             return e + mimc7.hash(
-                sharedKey, 
+                sharedKey,
                 iv + snarkjs.bigInt(i),
             )
         }),
@@ -350,7 +355,7 @@ const sign = (
     const sBuff = eddsa.pruneBuffer(h1.slice(0, 32))
     const s = snarkjs.bigInt.leBuff2int(sBuff)
     const A = babyJub.mulPointEscalar(babyJub.Base8, s.shr(3))
-    const msgBuff = snarkjs.bigInt.leInt2Buff(hashedData, 32) 
+    const msgBuff = snarkjs.bigInt.leInt2Buff(hashedData, 32)
     const rBuff = bigInt2Buffer(
         hashOne(
             buffer2BigInt(Buffer.concat(
@@ -395,8 +400,12 @@ export {
     encrypt,
     decrypt,
     sign,
-    hash,
     hashOne,
+    PoseidonParams,
+    POSEIDON_T3_PARAMS,
+    POSEIDON_T6_PARAMS,
+    hash5,
+    hash11,
     hashLeftRight,
     verifySignature,
     PrivKey,
@@ -409,11 +418,10 @@ export {
     stringifyBigInts,
     unstringifyBigInts,
     formatPrivKeyForBabyJub,
-    IncrementalMerkleTree,
+    IncrementalQuinTree,
     NOTHING_UP_MY_SLEEVE,
     SNARK_FIELD_SIZE,
     bigInt2Buffer,
     packPubKey,
     unpackPubKey,
-    passphraseToPrivKey,
 }

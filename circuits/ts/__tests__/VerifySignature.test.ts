@@ -6,7 +6,7 @@ import {
     stringifyBigInts,
     verifySignature,
     bigInt,
-    hash,
+    hash11,
     bigInt2Buffer,
 } from 'maci-crypto'
 
@@ -40,7 +40,7 @@ describe('Signature verification circuit', () => {
         const signer = new Keypair()
         const privKey = bigInt2Buffer(signer.privKey.rawPrivKey)
         const pubKey = circomlib.eddsa.prv2pub(privKey)
-        const plaintext = hash(command.asArray())
+        const plaintext = hash11(command.asArray())
         const sig = circomlib.eddsa.signMiMCSponge(privKey, plaintext)
 
         expect(verifySignature(plaintext, sig, pubKey)).toBeTruthy()
@@ -75,7 +75,7 @@ describe('Signature verification circuit', () => {
 
         const signer = new Keypair()
         const sig = command.sign(signer.privKey)
-        const plaintext = hash(command.asArray())
+        const plaintext = hash11(command.asArray())
 
         expect(verifySignature(plaintext, sig, signer.pubKey.rawPubKey)).toBeTruthy()
 
@@ -115,7 +115,7 @@ describe('Signature verification circuit', () => {
         expect(signer.privKey.rawPrivKey).not.toEqual(wrongSigner.privKey.rawPrivKey)
         const sig = command.sign(signer.privKey)
 
-        const plaintext = hash(command.asArray())
+        const plaintext = hash11(command.asArray())
 
         expect(verifySignature(plaintext, sig, wrongSigner.pubKey.rawPubKey)).toBeFalsy()
 

@@ -1,4 +1,3 @@
-
 import { compileAndLoadCircuit } from '../'
 import { config } from 'maci-config'
 import { MaciState } from 'maci-core'
@@ -100,11 +99,11 @@ describe('State tree root update verification circuit', () => {
     })
 
     it('BatchUpdateStateTree should produce the correct state root from a full batch', async () => {
-        // Generate four valid messages from the same user
+        // Generate a batch of valid messages from the same user
         const messages: Message[] = []
         const stateRootBefore = maciState.genStateRoot()
 
-        for (let i = 0; i < 4; i++) {
+        for (let i = 0; i < batchSize; i++) {
             const command = new Command(
                 bigInt(1),
                 user.pubKey,

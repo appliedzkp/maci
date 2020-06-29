@@ -6,7 +6,7 @@
         "noImplicitAny": false,
         "forceConsistentCasingInFileNames": true,
         "noUnusedLocals": false,
-        "noUnusedParameters": true,
+        "noUnusedParameters": false,
         "noImplicitReturns": true,
         "noFallthroughCasesInSwitch": true,
         "sourceMap": true,

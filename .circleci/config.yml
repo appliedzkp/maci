@@ -91,7 +91,7 @@ jobs:
 
       - run:
           name: Compile contracts
-          command: cd contracts && npm run compileSol
+          command: cd contracts && ./scripts/compileSol.sh --native
 
       - run:
           name: Lint

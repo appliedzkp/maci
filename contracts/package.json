@@ -12,6 +12,8 @@
         "deploy-debug": "node --inspect-brk build/deploy.js -o deployedAddresses.json",
         "test-mt": "jest IncrementalMerkleTree.test.ts",
         "test-mt-debug": "node --inspect-brk ./node_modules/.bin/jest IncrementalMerkleTree.test.ts",
+        "test-quin-mt": "jest IncrementalQuinTree.test.ts",
+        "test-quin-mt-debug": "node --inspect-brk ./node_modules/.bin/jest IncrementalQuinTree.test.ts",
         "test-signUp": "NODE_OPTIONS=--max-old-space-size=4096 jest SignUp.test.ts",
         "test-signUp-debug": "NODE_OPTIONS=--max-old-space-size=4096 node --inspect-brk ./node_modules/.bin/jest SignUp.test.ts",
         "test-publishMessage": "jest PublishMessage.test.ts",
@@ -19,7 +21,9 @@
         "test-batchProcessMessageAndQuadVoteTally": "NODE_OPTIONS=--max-old-space-size=4096 jest batchProcessMessageAndQuadVoteTally.test.ts",
         "test-batchProcessMessageAndQuadVoteTally-debug": "NODE_OPTIONS=--max-old-space-size=4096 node --inspect-brk ./node_modules/.bin/jest batchProcessMessageAndQuadVoteTally.test.ts",
         "test-hasher": "jest Hasher.test.ts",
-        "test-hasher-debug": "node --inspect-brk ./node_modules/.bin/jest Hasher.test.ts"
+        "test-hasher-debug": "node --inspect-brk ./node_modules/.bin/jest Hasher.test.ts",
+        "test-verifyTally": "jest VerifyTally.test.ts",
+        "test-verifyTally-debug": "node --inspect-brk ./node_modules/.bin/jest VerifyTally.test.ts"
     },
     "_moduleAliases": {
         "@maci-contracts": "."
@@ -27,7 +31,7 @@
     "dependencies": {
         "@openzeppelin/contracts": "^2.4.0",
         "argparse": "^1.0.10",
-        "circomlib": "https://github.com/kobigurk/circomlib.git#347822604996bf25f659f96ee0f02810a1f71bb0",
+        "circomlib": "https://github.com/ChihChengLiang/circomlib.git#e39ff9c27a5bc4eca5c00908ccb26496c37fce63",
         "etherlime-lib": "^1.1.5",
         "maci-config": "1.0.0",
         "module-alias": "^2.2.2",

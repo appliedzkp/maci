@@ -8,12 +8,12 @@ import {
 } from 'maci-domainobjs'
 
 import {
-    hash,
+    hashLeftRight,
     bigInt,
     SnarkBigInt,
     stringifyBigInts,
     NOTHING_UP_MY_SLEEVE,
-    IncrementalMerkleTree,
+    IncrementalQuinTree,
 } from 'maci-crypto'
 
 import { User } from './User'
@@ -48,7 +48,7 @@ class MaciState {
         this.voteOptionTreeDepth = bigInt(_voteOptionTreeDepth)
         this.maxVoteOptionIndex = bigInt(_maxVoteOptionIndex)
 
-        const emptyVoteOptionTree = new IncrementalMerkleTree(
+        const emptyVoteOptionTree = new IncrementalQuinTree(
             this.voteOptionTreeDepth,
             bigInt(0),
         )
@@ -62,7 +62,7 @@ class MaciState {
      */
     private genBlankVotes = () => {
         const votes: SnarkBigInt[] = []
-        for (let i = 0; i < bigInt(2).pow(this.voteOptionTreeDepth); i++) {
+        for (let i = 0; i < bigInt(5).pow(this.voteOptionTreeDepth); i++) {
             votes.push(bigInt(0))
         }
 
@@ -74,10 +74,11 @@ class MaciState {
      * this.zerothStateLeaf and the other leaves are the Users as hashed
      * StateLeaf objects
      */
-    public genStateTree = (): IncrementalMerkleTree => {
-        const stateTree = new IncrementalMerkleTree(
+    public genStateTree = (): IncrementalQuinTree => {
+        const stateTree = new IncrementalQuinTree(
             this.stateTreeDepth,
-            this.genBlankLeaf().hash()
+            this.genBlankLeaf().hash(),
+            2,
         )
 
         stateTree.insert(this.zerothStateLeaf.hash())
@@ -99,10 +100,11 @@ class MaciState {
     /*
      * Returns an IncrementalMerkleTree of all messages
      */
-    public genMessageTree = (): IncrementalMerkleTree => {
-        const messageTree = new IncrementalMerkleTree(
+    public genMessageTree = (): IncrementalQuinTree => {
+        const messageTree = new IncrementalQuinTree(
             this.messageTreeDepth,
             NOTHING_UP_MY_SLEEVE,
+            2,
         )
 
         for (const message of this.messages) {
@@ -245,6 +247,7 @@ class MaciState {
         newUser.nonce = newUser.nonce + bigInt(1)
         newUser.votes[command.voteOptionIndex] = command.newVoteWeight
         newUser.voiceCreditBalance = voiceCreditsLeft
+        newUser.pubKey = command.newPubKey.copy()
 
         // Replace the entry in this.users
         this.users[userIndex] = newUser
@@ -296,8 +299,8 @@ class MaciState {
         const { command } = Command.decrypt(message, sharedKey)
 
         const messageTree = this.genMessageTree()
-        const [msgTreePathElements, msgTreePathIndices]
-            = messageTree.getPathUpdate(_index)
+        const msgTreePath = messageTree.genMerklePath(_index)
+        assert(IncrementalQuinTree.verifyMerklePath(msgTreePath, messageTree.hashFunc))
 
         const stateTree = this.genStateTree()
         const stateTreeMaxIndex = bigInt(stateTree.nextIndex) - bigInt(1)
@@ -309,7 +312,7 @@ class MaciState {
 
         const currentVoteWeight = user.votes[command.voteOptionIndex]
 
-        const voteOptionTree = new IncrementalMerkleTree(
+        const voteOptionTree = new IncrementalQuinTree(
             this.voteOptionTreeDepth,
             bigInt(0),
         )
@@ -318,12 +321,13 @@ class MaciState {
             voteOptionTree.insert(vote)
         }
 
-        const [voteOptionTreePathElements, voteOptionTreeIndices]
-            = voteOptionTree.getPathUpdate(command.voteOptionIndex)
+        const voteOptionTreePath = voteOptionTree.genMerklePath(command.voteOptionIndex)
+        assert(IncrementalQuinTree.verifyMerklePath(voteOptionTreePath, voteOptionTree.hashFunc))
+
+        const stateTreePath = stateTree.genMerklePath(command.stateIndex)
+        assert(IncrementalQuinTree.verifyMerklePath(stateTreePath, stateTree.hashFunc))
 
         const stateLeaf = user.genStateLeaf(this.voteOptionTreeDepth)
-        const [stateTreePathElements, stateTreePathIndices]
-            = stateTree.getPathUpdate(command.stateIndex)
 
         return stringifyBigInts({
             'coordinator_public_key': this.coordinatorKeypair.pubKey.asCircuitInputs(),
@@ -331,18 +335,18 @@ class MaciState {
             'ecdh_public_key': encPubKey.asCircuitInputs(),
             'message': message.asCircuitInputs(),
             'msg_tree_root': messageTree.root,
-            'msg_tree_path_elements': msgTreePathElements,
-            'msg_tree_path_index': msgTreePathIndices,
+            'msg_tree_path_elements': msgTreePath.pathElements,
+            'msg_tree_path_index': msgTreePath.indices,
             'vote_options_leaf_raw': currentVoteWeight,
             'vote_options_tree_root': voteOptionTree.root,
-            'vote_options_tree_path_elements': voteOptionTreePathElements,
-            'vote_options_tree_path_index': voteOptionTreeIndices,
+            'vote_options_tree_path_elements': voteOptionTreePath.pathElements,
+            'vote_options_tree_path_index': voteOptionTreePath.indices,
             'vote_options_max_leaf_index': this.maxVoteOptionIndex,
             'state_tree_data_raw': stateLeaf.asCircuitInputs(),
             'state_tree_max_leaf_index': stateTreeMaxIndex,
             'state_tree_root': stateTree.root,
-            'state_tree_path_elements': stateTreePathElements,
-            'state_tree_path_index': stateTreePathIndices,
+            'state_tree_path_elements': stateTreePath.pathElements,
+            'state_tree_path_index': stateTreePath.indices,
         })
     }
 
@@ -428,7 +432,7 @@ class MaciState {
         // Insert the random leaf
         stateTree.update(0, _randomStateLeaf.hash())
 
-        const randomStateLeafPathElements = stateTree.getPathUpdate(0)[0]
+        const randomStateLeafPathElements = stateTree.genMerklePath(0).pathElements
 
         return stringifyBigInts({
             'coordinator_public_key': clonedMaciState.coordinatorKeypair.pubKey.asCircuitInputs(),
@@ -447,12 +451,158 @@ class MaciState {
             'random_leaf_path_elements': randomStateLeafPathElements,
             'vote_options_leaf_raw': voteOptionLeaves,
             'state_tree_data_raw': stateLeaves,
-            'state_tree_max_leaf_index': bigInt(stateTree.nextIndex - 1),
+            'state_tree_max_leaf_index': stateTree.nextIndex - bigInt(1),
             'vote_options_max_leaf_index': clonedMaciState.maxVoteOptionIndex,
             'vote_options_tree_root': voteOptionTreeRoots,
             'vote_options_tree_path_elements': voteOptionTreePathElements,
             'vote_options_tree_path_index': voteOptionTreePathIndices,
         })
+    }
+
+    /*
+     * Computes the total number of voice credits per vote option spent up to
+     * _startIndex. Ignores the zeroth state leaf.
+     * @param _startIndex The state tree index. Only leaves before this index
+     * are included in the tally.
+     */
+    public computeCumulativePerVOSpentVoiceCredits = (
+        _startIndex: SnarkBigInt,
+    ): SnarkBigInt[] => {
+        _startIndex = bigInt(_startIndex)
+
+        assert(bigInt(this.users.length) >= _startIndex)
+
+        // results should start off with 0s
+        const results: SnarkBigInt[] = []
+        for (let i = 0; i < bigInt(5).pow(this.voteOptionTreeDepth); i++) {
+            results.push(bigInt(0))
+        }
+
+        // Compute the cumulative total up till startIndex - 1 (since we should
+        // ignore the 0th leaf)
+        for (let i = bigInt(0); i < bigInt(_startIndex) - bigInt(1); i++) {
+            const user = this.users[i]
+            for (let j = 0; j < user.votes.length; j++) {
+                results[j] += user.votes[j] * user.votes[j]
+            }
+        }
+
+        return results
+    }
+
+
+    /*
+     * Computes the cumulative total of voice credits spent up to _startIndex.
+     * Ignores the zeroth state leaf.
+     * @param _startIndex The state tree index. Only leaves before this index
+     * are included in the tally.
+     */
+    public computeCumulativeSpentVoiceCredits = (
+        _startIndex: SnarkBigInt,
+    ): SnarkBigInt => {
+        _startIndex = bigInt(_startIndex)
+
+        assert(bigInt(this.users.length) >= _startIndex)
+
+        if (_startIndex.equals(bigInt(0))) {
+            return bigInt(0)
+        }
+
+        let result = bigInt(0)
+        for (let i = bigInt(0); i < _startIndex - bigInt(1); i++) {
+            const user = this.users[i]
+            for (let j = 0; j < user.votes.length; j++) {
+                result += user.votes[j] * user.votes[j]
+            }
+        }
+
+        return result
+    }
+
+    /*
+     * Compute the number of voice credits spent in a batch of state leaves
+     * @param _startIndex The index of the first user in the batch
+     * @param _batchSize The number of users to tally.
+     */
+    public computeBatchSpentVoiceCredits = (
+        _startIndex: SnarkBigInt,
+        _batchSize: SnarkBigInt,
+    ): SnarkBigInt => {
+        _startIndex = bigInt(_startIndex)
+        _batchSize = bigInt(_batchSize)
+
+        // Check whether _startIndex is within range.
+        assert(_startIndex >= 0 && _startIndex <= this.users.length)
+
+        // Check whether _startIndex is a multiple of _batchSize
+        assert(bigInt(_startIndex) % bigInt(_batchSize) === bigInt(0))
+
+        // Compute the spent voice credits
+        if (_startIndex.equals(0)) {
+            _batchSize = _batchSize - bigInt(1)
+        } else {
+            _startIndex = _startIndex - bigInt(1)
+        }
+
+        let result = bigInt(0)
+        for (let i = 0; i < _batchSize; i++) {
+            const userIndex = bigInt(_startIndex) + bigInt(i)
+            if (userIndex < this.users.length) {
+                for (const vote of this.users[userIndex].votes) {
+                    result += vote * vote
+                }
+            } else {
+                break
+            }
+        }
+        return result
+    }
+
+    /*
+     * Compute the number of voice credits spent per vote option in a batch of
+     * state leaves
+     * @param _startIndex The index of the first user in the batch
+     * @param _batchSize The number of users to tally.
+     */
+    public computeBatchPerVOSpentVoiceCredits = (
+        _startIndex: SnarkBigInt,
+        _batchSize: SnarkBigInt,
+    ): SnarkBigInt[] => {
+        _startIndex = bigInt(_startIndex)
+        _batchSize = bigInt(_batchSize)
+
+        // Check whether _startIndex is within range.
+        assert(_startIndex >= 0 && _startIndex <= this.users.length)
+
+        // Check whether _startIndex is a multiple of _batchSize
+        assert(bigInt(_startIndex) % bigInt(_batchSize) === bigInt(0))
+
+        // Compute the spent voice credits
+        if (_startIndex.equals(0)) {
+            _batchSize = _batchSize - bigInt(1)
+        } else {
+            _startIndex = _startIndex - bigInt(1)
+        }
+
+        // Fill results with 0s
+        const results: SnarkBigInt[] = []
+        for (let i = 0; i < bigInt(5).pow(this.voteOptionTreeDepth); i++) {
+            results.push(bigInt(0))
+        }
+
+        for (let i = 0; i < _batchSize; i++) {
+            const userIndex = bigInt(_startIndex) + bigInt(i)
+            if (userIndex < this.users.length) {
+                const votes = this.users[userIndex].votes
+                for (let j = 0; j < votes.length; j++) {
+                    results[j] += votes[j] * votes[j]
+                }
+            } else {
+                break
+            }
+        }
+
+        return results
     }
 
     /*
@@ -468,7 +618,7 @@ class MaciState {
 
         // results should start off with 0s
         const results: SnarkBigInt[] = []
-        for (let i = 0; i < bigInt(2).pow(this.voteOptionTreeDepth); i++) {
+        for (let i = 0; i < bigInt(5).pow(this.voteOptionTreeDepth); i++) {
             results.push(bigInt(0))
         }
 
@@ -508,7 +658,7 @@ class MaciState {
 
         // Fill results with 0s
         const results: SnarkBigInt[] = []
-        for (let i = 0; i < bigInt(2).pow(this.voteOptionTreeDepth); i++) {
+        for (let i = 0; i < bigInt(5).pow(this.voteOptionTreeDepth); i++) {
             results.push(bigInt(0))
         }
 
@@ -550,6 +700,10 @@ class MaciState {
         _batchSize: SnarkBigInt,
         _currentResultsSalt: SnarkBigInt,
         _newResultsSalt: SnarkBigInt,
+        _currentSpentVoiceCreditsSalt: SnarkBigInt,
+        _newSpentVoiceCreditsSalt: SnarkBigInt,
+        _currentPerVOSpentVoiceCreditsSalt: SnarkBigInt,
+        _newPerVOSpentVoiceCreditsSalt: SnarkBigInt,
     ) => {
         _startIndex = bigInt(_startIndex)
         _batchSize = bigInt(_batchSize)
@@ -559,6 +713,27 @@ class MaciState {
         if (_startIndex.equals(bigInt(0))) {
             assert(_currentResultsSalt.equals(bigInt(0)))
         }
+
+        // Compute the spent voice credits per vote option up to the _startIndex
+        const currentPerVOSpentVoiceCredits
+            = this.computeCumulativePerVOSpentVoiceCredits(_startIndex)
+
+        const currentPerVOSpentVoiceCreditsCommitment = genPerVOSpentVoiceCreditsCommitment(
+            currentPerVOSpentVoiceCredits,
+            _currentPerVOSpentVoiceCreditsSalt,
+            this.voteOptionTreeDepth,
+        )
+
+        // Compute the total number of spent voice credits up to the _startIndex
+        const currentSpentVoiceCredits 
+            = this.computeCumulativeSpentVoiceCredits(_startIndex)
+
+        // Compute the commitment to the total spent voice credits
+        const currentSpentVoiceCreditsCommitment
+            = genSpentVoiceCreditsCommitment(
+                currentSpentVoiceCredits,
+                _currentSpentVoiceCreditsSalt,
+            )
 
         const currentResults = this.computeCumulativeVoteTally(_startIndex)
         const batchResults = this.computeBatchVoteTally(_startIndex, _batchSize)
@@ -579,7 +754,11 @@ class MaciState {
         const blankStateLeaf = this.genBlankLeaf()
 
         const blankStateLeafHash = blankStateLeaf.hash()
-        const batchTreeDepth = bigInt(Math.sqrt(_batchSize.toString()))
+        let batchTreeDepth = bigInt(0)
+
+        while (bigInt(2).pow(batchTreeDepth) !== _batchSize) {
+            batchTreeDepth ++
+        }
 
         const stateLeaves: StateLeaf[] = []
         const voteLeaves: StateLeaf[][] = []
@@ -613,14 +792,16 @@ class MaciState {
         //    subtrees (the intermediate tree)
         // 2. Each batch tree whose leaves are state leaves
 
-        const emptyBatchTree = new IncrementalMerkleTree(
+        const emptyBatchTree = new IncrementalQuinTree(
             batchTreeDepth,
             blankStateLeafHash,
+            2,
         )
 
-        const intermediateTree = new IncrementalMerkleTree(
+        const intermediateTree = new IncrementalQuinTree(
             this.stateTreeDepth - batchTreeDepth,
             emptyBatchTree.root,
+            2,
         )
 
         // For each batch, create a tree of the leaves in the batch, and insert the
@@ -651,16 +832,29 @@ class MaciState {
 
         const intermediatePathIndex = _startIndex / _batchSize
         const intermediateStateRoot = intermediateTree.leaves[_startIndex / _batchSize]
-        const intermediatePathElements = intermediateTree.getPathUpdate(intermediatePathIndex)[0]
+        const intermediatePathElements = intermediateTree.genMerklePath(intermediatePathIndex).pathElements
 
         const circuitInputs = stringifyBigInts({
             voteLeaves,
             stateLeaves: stateLeaves.map((x) => x.asCircuitInputs()),
-            currentResults,
             fullStateRoot: this.genStateRoot(),
-            currentResultsSalt: _currentResultsSalt,
-            newResultsSalt: _newResultsSalt,
+
+            currentResults,
             currentResultsCommitment,
+            currentResultsSalt: _currentResultsSalt,
+
+            newResultsSalt: _newResultsSalt,
+
+            currentSpentVoiceCredits,
+            currentSpentVoiceCreditsSalt: _currentSpentVoiceCreditsSalt,
+            currentSpentVoiceCreditsCommitment,
+            newSpentVoiceCreditsSalt: _newSpentVoiceCreditsSalt,
+
+            currentPerVOSpentVoiceCredits,
+            currentPerVOSpentVoiceCreditsCommitment,
+            currentPerVOSpentVoiceCreditsSalt: _currentPerVOSpentVoiceCreditsSalt,
+            newPerVOSpentVoiceCreditsSalt: _newPerVOSpentVoiceCreditsSalt,
+
             intermediatePathElements,
             intermediatePathIndex,
             intermediateStateRoot,
@@ -668,6 +862,21 @@ class MaciState {
 
         return circuitInputs
     }
+}
+
+/*
+ * A helper function which returns the hash of the total number of spent voice
+ * credits and a salt.
+ *
+ * @param voiceCredits The number of voice credits
+ * @parm salt A random salt
+ * @return The hash of the number of voice credits and the salt
+ */
+const genSpentVoiceCreditsCommitment = (
+    vc: SnarkBigInt[],
+    salt: SnarkBigInt,
+): SnarkBigInt => {
+    return hashLeftRight(vc, salt)
 }
 
 /*
@@ -684,14 +893,18 @@ const genTallyResultCommitment = (
     voteOptionTreeDepth: number,
 ): SnarkBigInt => {
 
-    const tree = new IncrementalMerkleTree(voteOptionTreeDepth, bigInt(0))
+    const tree = new IncrementalQuinTree(voteOptionTreeDepth, bigInt(0))
     for (const result of results) {
         tree.insert(bigInt(result))
     }
-    return hash([tree.root, salt])
+    return hashLeftRight(tree.root, salt)
 }
 
+const genPerVOSpentVoiceCreditsCommitment = genTallyResultCommitment
+
 export {
+    genPerVOSpentVoiceCreditsCommitment,
+    genSpentVoiceCreditsCommitment,
     genTallyResultCommitment,
     MaciState,
 }

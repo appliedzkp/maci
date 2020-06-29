@@ -16,4 +16,4 @@ include "../updateStateTree.circom"
 // CMD_SIG_S_IDX
 
 
-component main = PerformChecksBeforeUpdate(11, 7, 4, 5, 4, 16, 4, 16, 4, 0, 1, 7, 8, 9);
+component main = PerformChecksBeforeUpdate(11, 7, 4, 5, 4, 15, 2, 15, 4, 0, 1, 7, 8, 9);

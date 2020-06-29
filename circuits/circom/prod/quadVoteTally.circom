@@ -4,4 +4,4 @@ include "../quadVoteTally.circom"
 // intermediateStateTreeDepth,
 // voteOptionTreeDepth
 
-component main = QuadVoteTally(4, 2, 4);
+component main = QuadVoteTally(4, 2, 2);

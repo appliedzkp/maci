@@ -42,6 +42,10 @@ which is equal to:
 5503045433092194285660061905880311622788666850989422096966288514930349325741
 ```
 
+## Vote option trees
+
+We use a Quinary Merkle tree (5 leaves per node) to store votes.
+
 ## `signUp(PubKey _userPubKey, bytes memory _signUpGatekeeperData, bytes memory _initialVoiceCreditProxyData)`
 
 Signups can only occur during the signup period. The `signUp` function passes the sender's address, along with the `_signUpGatekeeperData` to a `SignUpGateway` contract, which determines whether or not to allow the user to sign up. For instance, this contract can be a simple whitelist.
@@ -145,7 +149,7 @@ A useful rule of thumb is that the coordinator -- not the user --  should provid
 
 ### About nonces
 
-The first message that a user submits should have a nonce of `0`. The nonce of subsequent messages now depends on whether the user is bribed and has to reveal their vote to the briber.
+The first valid message that a user submits should have a nonce of `1`. The nonce of subsequent messages now depends on whether the user is bribed and has to reveal their vote to the briber.
 
 In the case that a user is not bribed, nonces are simply incremental.
 
@@ -155,9 +159,9 @@ If a user is bribed against their will, however, they should set the nonce to wh
 
 could encrypt and submit this invalid message:
 
-`{key = Ka, vote = B, nonce = 0}`
+`{key = Ka, vote = B, nonce = 1}`
 
-where `Ka` is an invalid key. When the user decrypts this message and reveals it to the briber, the briber not only has no way to tell if this message is valid, they also have no reason to think that the user had not previously submitted valid messages, as the nonce is `0`.
+where `Ka` is an invalid key. When the user decrypts this message and reveals it to the briber, the briber not only has no way to tell if this message is valid, they also have no reason to think that the user had not previously submitted valid messages, as the nonce is `1`.
 
 ## Message verification
 

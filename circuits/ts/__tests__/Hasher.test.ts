@@ -10,19 +10,23 @@ import {
     stringifyBigInts,
     genRandomSalt,
     hashLeftRight,
-    hashOne,
+    hash5,
+    hash11,
 } from 'maci-crypto'
 
-describe('MiMC hash circuits', () => {
+describe('Poseidon hash circuits', () => {
     let circuit
 
-    describe('Hasher', () => {
-        it('correctly hashes one random value', async () => {
-            circuit = await compileAndLoadCircuit('test/hasher_test.circom')
-            const preImage = genRandomSalt()
+    describe('Hasher5', () => {
+        it('correctly hashes 5 random value', async () => {
+            circuit = await compileAndLoadCircuit('test/hasher5_test.circom')
+            const preImages: any = []
+            for (let i = 0; i < 5; i++) {
+                preImages.push(genRandomSalt())
+            }
+
             const circuitInputs = stringifyBigInts({
-                in: [preImage],
-                key: 0,
+                in: preImages,
             })
 
             const witness = circuit.calculateWitness(circuitInputs)
@@ -31,7 +35,29 @@ describe('MiMC hash circuits', () => {
             const outputIdx = circuit.getSignalIdx('main.hash')
             const output = witness[outputIdx]
 
-            const outputJS = hashOne(preImage)
+            const outputJS = hash5(preImages)
+
+            expect(output.toString()).toEqual(outputJS.toString())
+        })
+    })
+    describe('Hasher11', () => {
+        it('correctly hashes 11 random value', async () => {
+            circuit = await compileAndLoadCircuit('test/hasher11_test.circom')
+            const preImages: any = []
+            for (let i = 0; i < 11; i++) {
+                preImages.push(genRandomSalt())
+            }
+            const circuitInputs = stringifyBigInts({
+                in: preImages,
+            })
+
+            const witness = circuit.calculateWitness(circuitInputs)
+            expect(circuit.checkWitness(witness)).toBeTruthy()
+
+            const outputIdx = circuit.getSignalIdx('main.hash')
+            const output = witness[outputIdx]
+
+            const outputJS = hash11(preImages)
 
             expect(output.toString()).toEqual(outputJS.toString())
         })

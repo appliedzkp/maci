@@ -3,6 +3,8 @@ import * as fs from 'fs'
 import * as path from 'path'
 import * as shell from 'shelljs'
 
+import { config } from 'maci-config'
+
 const fileExists = (filepath: string): boolean => {
     const currentPath = path.join(__dirname, '..')
     const inputFilePath = path.join(currentPath, filepath)
@@ -11,7 +13,7 @@ const fileExists = (filepath: string): boolean => {
     return inputFileExists
 }
 
-const main = async () => {
+const main = () => {
     const parser = new argparse.ArgumentParser({ 
         description: 'Compile a circom circuit and generate its proving key, verification key, and Solidity verifier'
     })
@@ -86,7 +88,8 @@ const main = async () => {
         ['-z', '--zkutil'],
         {
             help: 'The path to the zkutil binary',
-            required: true
+            required: false,
+            defaultValue: config.zkutil_bin
         }
     )
 
@@ -106,7 +109,7 @@ const main = async () => {
     const output = shell.exec(zkutilPath + ' -V')
     if (output.stderr) {
         console.error('zkutil not found. Please refer to the README for installation instructions.')
-        return
+        return 1
     }
 
 
@@ -116,7 +119,7 @@ const main = async () => {
     // Exit if it does not
     if (!inputFileExists) {
         console.error('File does not exist:', inputFile)
-        return
+        return 1
     }
 
     // Set memory options for node
@@ -171,12 +174,16 @@ const main = async () => {
     )
 
     fs.writeFileSync(solOut, newSource)
+    return 0
 }
 
 if (require.main === module) {
+    let exitCode;
     try {
-        main()
+        exitCode = main()
     } catch (err) {
         console.error(err)
+        exitCode = 1
     }
+    process.exit(exitCode)
 }

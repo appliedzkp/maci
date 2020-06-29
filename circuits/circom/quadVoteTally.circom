@@ -1,24 +1,11 @@
 include "../node_modules/circomlib/circuits/mux1.circom";
 include "../node_modules/circomlib/circuits/bitify.circom";
 include "../node_modules/circomlib/circuits/comparators.circom";
-include "./merkletree.circom";
-include "./hasher.circom";
-
-// This circuit returns the sum of the inputs.
-// n must be greater than 0.
-template CalculateTotal(n) {
-    signal input nums[n];
-    signal output sum;
-
-    signal sums[n];
-    sums[0] <== nums[0];
-
-    for (var i=1; i < n; i++) {
-        sums[i] <== sums[i - 1] + nums[i];
-    }
-
-    sum <== sums[n - 1];
-}
+include "./trees/incrementalQuinTree.circom";
+include "./trees/incrementalMerkleTree.circom";
+include "./hasherPoseidon.circom";
+include "./trees/calculateTotal.circom";
+include "./trees/checkRoot.circom";
 
 // This circuit tallies the votes from a batch of state leaves, and produces an
 // intermediate state root. 
@@ -58,7 +45,7 @@ template QuadVoteTally(
     // square root of each user's voice credits per option.
     // [x, y] means x for option 0, and y for option 1.
 
-    var numVoteOptions = 2 ** voteOptionTreeDepth;
+    var numVoteOptions = 5 ** voteOptionTreeDepth;
 
     // `currentResults` is the vote tally of all prior batches of state leaves	
     signal private input currentResults[numVoteOptions];
@@ -80,26 +67,42 @@ template QuadVoteTally(
     // voice credits per option.
     signal private input voteLeaves[numUsers][numVoteOptions];
 
+    // The total spent voice credit commitments and salts
+    signal input currentSpentVoiceCreditsCommitment;
+    signal private input currentSpentVoiceCredits;
+    signal private input currentSpentVoiceCreditsSalt;
+    signal private input newSpentVoiceCreditsSalt;
+    signal output newSpentVoiceCreditsCommitment;
+
+    // The per-option spent voice credit commitments and salts
+    signal input currentPerVOSpentVoiceCreditsCommitment;
+    signal private input currentPerVOSpentVoiceCredits[numVoteOptions];
+    signal private input currentPerVOSpentVoiceCreditsSalt;
+    signal private input newPerVOSpentVoiceCreditsSalt;
+    signal output newPerVOSpentVoiceCreditsCommitment;
+
     // --- END inputs
 
     var STATE_TREE_VOTE_OPTION_TREE_ROOT_IDX = 2;
+    var STATE_TREE_VOICE_CREDIT_BALANCE_IDX = 3;
 
     // --- BEGIN check the full state root
 
     var i;
     var j;
+    var m;
 
-    // Convert the intermediate path index to bits
-    component intermediatePathIndexBits = Num2Bits(k);
-    intermediatePathIndexBits.in <== intermediatePathIndex;
+    // Generate the intermediate path index for Merkle proof verifcation
+    component intermediatePathIndices = Num2Bits(k);
+    intermediatePathIndices.in <== intermediatePathIndex;
 
     // Check that the intermediate root is part of the full state tree
     component fullStateRootChecker = LeafExists(k);
     fullStateRootChecker.root <== fullStateRoot; 
     fullStateRootChecker.leaf <== intermediateStateRoot; 
-    for (i=0; i < k; i++) {
+    for (i = 0; i < k; i ++) {
         fullStateRootChecker.path_elements[i] <== intermediatePathElements[i];
-        fullStateRootChecker.path_index[i] <== intermediatePathIndexBits.out[i];
+        fullStateRootChecker.path_index[i] <== intermediatePathIndices.out[i];
     }
 
     // --- END
@@ -113,9 +116,8 @@ template QuadVoteTally(
     // Instantiate the state leaf checker and vote option root checker
     // components in the same loop
     for (i=0; i < numUsers; i++) {
-        voteOptionRootChecker[i] = CheckRoot(voteOptionTreeDepth);
-        stateLeafHashers[i] = Hasher(messageLength);
-        stateLeafHashers[i].key <== 0;
+        voteOptionRootChecker[i] = QuinCheckRoot(voteOptionTreeDepth);
+        stateLeafHashers[i] = Hasher5();
 
         // Hash each state leaf
         for (j=0; j < messageLength; j++) {
@@ -132,17 +134,62 @@ template QuadVoteTally(
 
     // --- END
 
-    // --- BEGIN check vote tally and vote option root
+    // --- BEGIN total spent voice credit tally
+
+    // Verify currentSpentVoiceCreditsCommitment
+    component currentSpentVoiceCreditCommitmentHasher = HashLeftRight();
+    currentSpentVoiceCreditCommitmentHasher.left <== currentSpentVoiceCredits;
+    currentSpentVoiceCreditCommitmentHasher.right <== currentSpentVoiceCreditsSalt;
+    currentSpentVoiceCreditsCommitment === currentSpentVoiceCreditCommitmentHasher.hash;
+
+    component newSpentVoiceCreditSubtotal = CalculateTotal(numUsers * numVoteOptions + 1);
+
+    // Add the cumulative spent voice credits from all prior batches
+    newSpentVoiceCreditSubtotal.nums[numUsers * numVoteOptions] <== currentSpentVoiceCredits;
+
+    // Add the spent voice credits for this batch
+    for (i=0; i < numUsers; i++) {
+        for (j=0; j < numVoteOptions; j++) {
+            // Add the voice credits spent per vote option
+            newSpentVoiceCreditSubtotal.nums[i * numVoteOptions + j] <== 
+                voteLeaves[i][j] * voteLeaves[i][j];
+        }
+    }
+
+    // Compute the commitment to the new voice credit tally
+    component newSpentVoiceCreditCommitmentHasher = HashLeftRight();
+    newSpentVoiceCreditCommitmentHasher.left <== newSpentVoiceCreditSubtotal.sum;
+    newSpentVoiceCreditCommitmentHasher.right <== newSpentVoiceCreditsSalt;
+    newSpentVoiceCreditsCommitment <== newSpentVoiceCreditCommitmentHasher.hash;
+    // --- END
+
+    // --- BEGIN the vote tally and vote option root, as well as the per vote
+    // option spent voice credit tally
+
+    // Verify currentPerVOSpentVoiceCreditsCommitment
+    component currentPerVOSpentVoiceCreditsTree = QuinCheckRoot(voteOptionTreeDepth);
+    for (i = 0; i < numVoteOptions; i++) {
+        currentPerVOSpentVoiceCreditsTree.leaves[i] <== currentPerVOSpentVoiceCredits[i];
+    }
+    component currentPerVOSpentVoiceCreditCommitmentHasher = HashLeftRight();
+    currentPerVOSpentVoiceCreditCommitmentHasher.left <== currentPerVOSpentVoiceCreditsTree.root;
+    currentPerVOSpentVoiceCreditCommitmentHasher.right <== currentPerVOSpentVoiceCreditsSalt;
+    currentPerVOSpentVoiceCreditsCommitment === currentPerVOSpentVoiceCreditCommitmentHasher.hash;
 
     component voteOptionSubtotals[numVoteOptions];
+    component perVOSpentVoiceCreditSubtotals[numVoteOptions];
 
     // Prepare the CalculateTotal components to add up (a) the current vote
-    // tally and the votes in `voteLeaves`
+    // tally and (b) the spent voice credits
     for (i=0; i < numVoteOptions; i++) {
         voteOptionSubtotals[i] = CalculateTotal(numUsers + 1);
 
         // Add the existing vote tally to the subtotal
         voteOptionSubtotals[i].nums[numUsers] <== currentResults[i];
+
+        perVOSpentVoiceCreditSubtotals[i] = CalculateTotal(numUsers + 1);
+        // Add the existing per vote option spent voice credit tally to the subtotal
+        perVOSpentVoiceCreditSubtotals[i].nums[numUsers] <== currentPerVOSpentVoiceCredits[i];
     }
 
     // Determine if we should skip leaf 0. This should only be the case if
@@ -169,6 +216,8 @@ template QuadVoteTally(
         //`mux.out` returns mux.c[0] if s == 0 and mux.c[1] otherwise
         voteOptionRootChecker[0].leaves[i] <== mux[i].out;
         voteOptionSubtotals[i].nums[0] <== mux[i].out;
+
+        perVOSpentVoiceCreditSubtotals[i].nums[0] <== mux[i].out * mux[i].out;
     }
 
     for (i = 1; i < numUsers; i++) {
@@ -184,12 +233,25 @@ template QuadVoteTally(
 
             // Calculate the sum of votes for each option.
             voteOptionSubtotals[j].nums[i] <== voteLeaves[i][j];
+
+            // Calculate the sum of voice credits for each option.
+            perVOSpentVoiceCreditSubtotals[j].nums[i] <== voteLeaves[i][j] * voteLeaves[i][j];
         }
 
         // Check that the computed vote option tree root matches the
         // corresponding value in the state leaf
         voteOptionRootChecker[i].root === stateLeaves[i][STATE_TREE_VOTE_OPTION_TREE_ROOT_IDX];
     }
+
+    component perVOSpentVoiceCreditTree = QuinCheckRoot(voteOptionTreeDepth);
+    for (i = 0; i < numVoteOptions; i++) {
+        perVOSpentVoiceCreditTree.leaves[i] <== perVOSpentVoiceCreditSubtotals[i].sum;
+    }
+
+    component newPerVOSpentVoiceCreditCommitmentHasher = HashLeftRight();
+    newPerVOSpentVoiceCreditCommitmentHasher.left <== perVOSpentVoiceCreditTree.root;
+    newPerVOSpentVoiceCreditCommitmentHasher.right <== newPerVOSpentVoiceCreditsSalt;
+    newPerVOSpentVoiceCreditsCommitment <== newPerVOSpentVoiceCreditCommitmentHasher.hash;
 
     // --- END
 
@@ -215,7 +277,7 @@ template QuadVoteTally(
  * commitment to the new results.
  */
 template ResultCommitmentVerifier(voteOptionTreeDepth) {
-    var numVoteOptions = 2 ** voteOptionTreeDepth;
+    var numVoteOptions = 5 ** voteOptionTreeDepth;
 
     signal input currentResultsSalt;
     signal input currentResultsCommitment;
@@ -226,23 +288,21 @@ template ResultCommitmentVerifier(voteOptionTreeDepth) {
     signal output newResultsCommitment;
 
     // Salt and hash the results up to the current batch
-    component currentResultsTree = CheckRoot(voteOptionTreeDepth);
-    component newResultsTree = CheckRoot(voteOptionTreeDepth);
+    component currentResultsTree = QuinCheckRoot(voteOptionTreeDepth);
+    component newResultsTree = QuinCheckRoot(voteOptionTreeDepth);
     for (var i = 0; i < numVoteOptions; i++) {
         newResultsTree.leaves[i] <== newResults[i];
         currentResultsTree.leaves[i] <== currentResults[i];
     }
 
-    component currentResultsCommitmentHasher = Hasher(2);
-    currentResultsCommitmentHasher.key <== 0;
-    currentResultsCommitmentHasher.in[0] <== currentResultsTree.root;
-    currentResultsCommitmentHasher.in[1] <== currentResultsSalt;
+    component currentResultsCommitmentHasher = HashLeftRight();
+    currentResultsCommitmentHasher.left <== currentResultsTree.root;
+    currentResultsCommitmentHasher.right <== currentResultsSalt;
 
     // Also salt and hash the result of the current batch
-    component newResultsCommitmentHasher = Hasher(2);
-    newResultsCommitmentHasher.key <== 0;
-    newResultsCommitmentHasher.in[0] <== newResultsTree.root;
-    newResultsCommitmentHasher.in[1] <== newResultsSalt;
+    component newResultsCommitmentHasher = HashLeftRight();
+    newResultsCommitmentHasher.left <== newResultsTree.root;
+    newResultsCommitmentHasher.right <== newResultsSalt;
 
     // Check if the salted hash of the results up to the current batch is valid
     currentResultsCommitment === currentResultsCommitmentHasher.hash;

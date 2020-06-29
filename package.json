@@ -1,8 +1,9 @@
 {
   "name": "maci",
   "version": "0.0.1",
-  "homepage": "https://github.com/barrywhitehat/maci",
   "description": "Minimal Anti-Collustion Infrastructure",
+  "repository": "https://github.com/appliedzkp/maci",
+  "license": "MIT",
   "scripts": {
     "bootstrap": "lerna bootstrap",
     "build": "lerna run build",

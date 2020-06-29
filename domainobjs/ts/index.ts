@@ -11,7 +11,8 @@ import {
     encrypt,
     decrypt,
     sign,
-    hash,
+    hash5,
+    hash11,
     verifySignature,
     genRandomSalt,
     genKeypair,
@@ -246,7 +247,7 @@ class Message {
 
     public hash = (): SnarkBigInt => {
 
-        return hash(this.asArray())
+        return hash11(this.asArray())
     }
 
     public copy = (): Message => {
@@ -329,7 +330,7 @@ class StateLeaf implements IStateLeaf {
 
     public hash = (): SnarkBigInt => {
 
-        return hash(this.asArray())
+        return hash5(this.asArray())
     }
 
     public serialize = (): string => {
@@ -430,6 +431,10 @@ class Command implements ICommand {
             this.salt == command.salt
     }
 
+    public hash = (): SnarkBigInt => {
+        return hash11(this.asArray())
+    }
+
     /*
      * Signs this command and returns a Signature.
      */
@@ -437,7 +442,7 @@ class Command implements ICommand {
         privKey: PrivKey,
     ): Signature => {
 
-        return sign(privKey.rawPrivKey, hash(this.asArray()))
+        return sign(privKey.rawPrivKey, this.hash())
     }
 
     /*
@@ -451,7 +456,7 @@ class Command implements ICommand {
     ): boolean => {
 
         return verifySignature(
-            hash(this.asArray()),
+            this.hash(),
             signature,
             pubKey.rawPubKey,
         )

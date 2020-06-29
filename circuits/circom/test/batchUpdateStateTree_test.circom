@@ -5,4 +5,4 @@ include "../batchUpdateStateTree.circom"
 // vote_options_tree_depth,
 // batch_size
 
-component main = BatchUpdateStateTree(4, 4, 4, 4);
+component main = BatchUpdateStateTree(4, 4, 2, 4);

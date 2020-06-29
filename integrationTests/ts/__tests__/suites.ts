@@ -8,6 +8,8 @@ import {
 } from 'maci-domainobjs'
 
 import { 
+    genPerVOSpentVoiceCreditsCommitment,
+    genSpentVoiceCreditsCommitment,
     genTallyResultCommitment,
     MaciState,
 } from 'maci-core'
@@ -254,7 +256,10 @@ const executeSuite = async (data: any, expect: any) => {
         ` -d ${userPrivKey}` +
         ` -x ${maciAddress}` +
         ` -z ${randomLeaf.serialize()}` +
+        ` -t test_tally.json` +
         ` -c 0x0000000000000000000000000000000000000000000000000000000000000000` +
+        ` -tvc 0x0000000000000000000000000000000000000000000000000000000000000000` +
+        ` -pvc 0x0000000000000000000000000000000000000000000000000000000000000000` +
         ` -r`
 
     console.log(tallyCommand)
@@ -268,21 +273,69 @@ const executeSuite = async (data: any, expect: any) => {
     console.log(tallyOutput.stdout)
 
     const tallyRegMatch = tallyOutput.match(
-        /Transaction hash: (0x[a-fA-F0-9]{64})\nCurrent results salt: (0x[a-fA-F0-9]+)\n$/
+        /Transaction hash: (0x[a-fA-F0-9]{64})\nCurrent results salt: (0x[a-fA-F0-9]+)\nResult commitment: 0x[a-fA-F0-9]+\nTotal spent voice credits salt: (0x[a-fA-F0-9]+)\nTotal spent voice credits commitment: 0x[a-fA-F0-9]+\nTotal spent voice credits per vote option salt: (0x[a-fA-F0-9]+)\nTotal spent voice credits per vote option commitment: (0x[a-fA-F0-9]+)\n$/
     )
+
+    if (!tallyRegMatch) {
+        console.log('Mismatch:')
+        console.log(tallyOutput)
+    }
 
     expect(tallyRegMatch).toBeTruthy()
 
-    const salt = bigInt(tallyRegMatch[2])
+    const resultsSalt = bigInt(tallyRegMatch[2])
 
     const finalTallyCommitment = await maciContract.currentResultsCommitment()
     const expectedTallyCommitment = genTallyResultCommitment(
         data.expectedTally,
-        salt,
+        resultsSalt,
         voteOptionTreeDepth,
     )
 
-    expect(finalTallyCommitment.toString()).toEqual(expectedTallyCommitment.toString())
+    expect(finalTallyCommitment.toString())
+        .toEqual(expectedTallyCommitment.toString())
+
+    const tvcSalt = bigInt(tallyRegMatch[3])
+    const finalTvcCommitment = 
+        await maciContract.currentSpentVoiceCreditsCommitment()
+
+    const expectedTvcCommitment = genSpentVoiceCreditsCommitment(
+        data.expectedTotalSpentVoiceCredits,
+        tvcSalt,
+    )
+    expect(expectedTvcCommitment.toString())
+        .toEqual(finalTvcCommitment.toString())
+
+
+    const pvcSalt = bigInt(tallyRegMatch[4])
+    const finalPvcCommitment =
+        await maciContract.currentPerVOSpentVoiceCreditsCommitment()
+    const expectedPvcCommitment = genPerVOSpentVoiceCreditsCommitment(
+        data.expectedSpentVoiceCredits,
+        pvcSalt,
+        voteOptionTreeDepth,
+    )
+    expect(expectedPvcCommitment.toString())
+        .toEqual(finalPvcCommitment.toString())
+
+    const verifyCommand = `NODE_OPTIONS=--max-old-space-size=4096 node ../cli/build/index.js verify ` +
+        '-t test_tally.json'
+
+    console.log(verifyCommand)
+
+    const verifyOutput = exec(verifyCommand)
+
+    if (verifyOutput.stderr) {
+        console.log(verifyOutput.stderr)
+    }
+
+    const verifyRegMatch = verifyOutput.match(
+        /The results commitment in the specified file is correct given the tally and salt\nThe total spent voice credit commitment in the specified file is correct given the tally and salt\nThe per vote option spent voice credit commitment in the specified file is correct given the tally and salt\nThe results commitment in the MACI contract on-chain is valid\nThe total spent voice credit commitment in the MACI contract on-chain is valid\nThe per vote option spent voice credit commitment in the MACI contract on-chain is valid\n/
+    )
+    if (!verifyRegMatch) {
+        console.log(verifyOutput)
+    }
+    expect(verifyRegMatch).toBeTruthy()
 
     return true
 }

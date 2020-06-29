@@ -1,6 +1,5 @@
 import * as ethers from 'ethers'
 
-
 import {
     maciContractAbi,
     formatProofForVerifierContract,
@@ -220,6 +219,7 @@ const processMessages = async (args: any) => {
             messageBatchSize,
             randomStateLeaf,
         )
+        debugger
 
         // Process the batch of messages
         maciState.batchProcessMessage(

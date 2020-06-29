@@ -1,6 +1,6 @@
 # Minimum Anti-Collusion Infrastructure
 
-*Barry WhiteHat, Kendrick Tan, Kobi Gurkan, and Koh Wei Jie*
+*Barry WhiteHat, Kendrick Tan, Kobi Gurkan, Chih-Cheng Liang, and Koh Wei Jie*
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->

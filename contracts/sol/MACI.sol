@@ -2,6 +2,7 @@ pragma experimental ABIEncoderV2;
 pragma solidity ^0.5.0;
 
 import { DomainObjs } from './DomainObjs.sol';
+import { IncrementalQuinTree } from "./IncrementalQuinTree.sol";
 import { IncrementalMerkleTree } from "./IncrementalMerkleTree.sol";
 import { SignUpGatekeeper } from "./gatekeepers/SignUpGatekeeper.sol";
 import { BatchUpdateStateTreeVerifier } from "./BatchUpdateStateTreeVerifier.sol";
@@ -9,9 +10,11 @@ import { QuadVoteTallyVerifier } from "./QuadVoteTallyVerifier.sol";
 import { InitialVoiceCreditProxy } from './initialVoiceCreditProxy/InitialVoiceCreditProxy.sol';
 import { SnarkConstants } from './SnarkConstants.sol';
 import { ComputeRoot } from './ComputeRoot.sol';
+import { MACIParameters } from './MACIParameters.sol';
+import { VerifyTally } from './VerifyTally.sol';
 import { Ownable } from "@openzeppelin/contracts/ownership/Ownable.sol";
 
-contract MACI is Ownable, DomainObjs, ComputeRoot {
+contract MACI is Ownable, DomainObjs, ComputeRoot, MACIParameters, VerifyTally {
 
     // A nothing-up-my-sleeve zero value
     // Should be equal to 5503045433092194285660061905880311622788666850989422096966288514930349325741
@@ -43,12 +46,18 @@ contract MACI is Ownable, DomainObjs, ComputeRoot {
     // signals.
     uint256 public postSignUpStateRoot;
 
-    // To store the Merkle root of a tree with 2 **
+    // To store the Merkle root of a tree with 5 **
     // _treeDepths.voteOptionTreeDepth leaves of value 0
     uint256 public emptyVoteOptionTreeRoot;
 
-    // To store hashLeftRight(Merkle root of 2 ** voteOptionTreeDepth zeros, 0)
+    // To store hashLeftRight(Merkle root of 5 ** voteOptionTreeDepth zeros, 0)
     uint256 public currentResultsCommitment;
+
+    // To store hashLeftRight(0, 0). We precompute it here to save gas.
+    uint256 public currentSpentVoiceCreditsCommitment = hashLeftRight(0, 0);
+
+    // To store hashLeftRight(Merkle root of 5 ** voteOptionTreeDepth zeros, 0)
+    uint256 public currentPerVOSpentVoiceCreditsCommitment;
 
     // The maximum number of leaves, minus one, of meaningful vote options.
     uint256 public voteOptionsMaxLeafIndex;
@@ -101,25 +110,6 @@ contract MACI is Ownable, DomainObjs, ComputeRoot {
         Message indexed _message,
         PubKey indexed _encPubKey
     );
-
-    // This struct helps to reduce the number of parameters to the constructor
-    // and avoid a stack overflow error during compilation
-    struct TreeDepths {
-        uint8 stateTreeDepth;
-        uint8 messageTreeDepth;
-        uint8 voteOptionTreeDepth;
-    }
-
-    struct BatchSizes {
-        uint8 tallyBatchSize;
-        uint8 messageBatchSize;
-    }
-
-    struct MaxValues {
-        uint256 maxUsers;
-        uint256 maxMessages;
-        uint256 maxVoteOptions;
-    }
 
     constructor(
         TreeDepths memory _treeDepths,
@@ -184,9 +174,10 @@ contract MACI is Ownable, DomainObjs, ComputeRoot {
         // be set before we call hashedBlankStateLeaf() later
         emptyVoteOptionTreeRoot = calcEmptyVoteOptionTreeRoot(_treeDepths.voteOptionTreeDepth);
 
-        // Calculate and store a commitment to 2 ** voteOptionTreeDepth zeros,
-        // and the salt of 0.
+        // Calculate and store a commitment to 5 ** voteOptionTreeDepth zeros,
+        // and a salt of 0.
         currentResultsCommitment = hashLeftRight(emptyVoteOptionTreeRoot, 0);
+        currentPerVOSpentVoiceCreditsCommitment = currentResultsCommitment;
 
         // Compute the hash of a blank state leaf
         uint256 h = hashedBlankStateLeaf();
@@ -301,7 +292,6 @@ contract MACI is Ownable, DomainObjs, ComputeRoot {
     /*
      * Allows anyone to publish a message (an encrypted command and signature).
      * This function also inserts it into the message tree.
-     * @param _userPubKey The user's desired public key.
      * @param _message The message to publish
      * @param _encPubKey An epheremal public key which can be combined with the
      *     coordinator's private key to generate an ECDH shared key which which was
@@ -323,7 +313,7 @@ contract MACI is Ownable, DomainObjs, ComputeRoot {
         // postSignUpStateRoot to the last known state root.
         // We do so as the batchProcessMessage function can only update the
         // state root as a variable and has no way to use
-        // IncrementalMerkleTree.insertLeaf() anyway.
+        // IncrementalQuinTree.insertLeaf() anyway.
         if (postSignUpStateRoot == 0) {
             // It is exceedingly improbable that the zero value is a tree root
             assert(postSignUpStateRoot != stateTree.root());
@@ -499,16 +489,22 @@ contract MACI is Ownable, DomainObjs, ComputeRoot {
      */
     function genQvtPublicSignals(
         uint256 _intermediateStateRoot,
-        uint256 _newResultsCommitment
-    ) public view returns (uint256[5] memory) {
+        uint256 _newResultsCommitment,
+        uint256 _newSpentVoiceCreditsCommitment,
+        uint256 _newPerVOSpentVoiceCreditsCommitment
+    ) public view returns (uint256[9] memory) {
 
-        uint256[5] memory publicSignals;
+        uint256[9] memory publicSignals;
 
         publicSignals[0] = _newResultsCommitment;
-        publicSignals[1] = postSignUpStateRoot;
-        publicSignals[2] = currentQvtBatchNum;
-        publicSignals[3] = _intermediateStateRoot;
-        publicSignals[4] = currentResultsCommitment;
+        publicSignals[1] = _newSpentVoiceCreditsCommitment;
+        publicSignals[2] = _newPerVOSpentVoiceCreditsCommitment;
+        publicSignals[3] = postSignUpStateRoot;
+        publicSignals[4] = currentQvtBatchNum;
+        publicSignals[5] = _intermediateStateRoot;
+        publicSignals[6] = currentResultsCommitment;
+        publicSignals[7] = currentSpentVoiceCreditsCommitment;
+        publicSignals[8] = currentPerVOSpentVoiceCreditsCommitment;
 
         return publicSignals;
     }
@@ -542,6 +538,8 @@ contract MACI is Ownable, DomainObjs, ComputeRoot {
     function proveVoteTallyBatch(
         uint256 _intermediateStateRoot,
         uint256 _newResultsCommitment,
+        uint256 _newSpentVoiceCreditsCommitment,
+        uint256 _newPerVOSpentVoiceCreditsCommitment,
         uint256[8] memory _proof
     ) 
     public {
@@ -556,9 +554,12 @@ contract MACI is Ownable, DomainObjs, ComputeRoot {
         );
 
         // Generate the public signals
-        uint256[5] memory publicSignals = genQvtPublicSignals(
+        // public 'input' signals = [output signals, public inputs]
+        uint256[9] memory publicSignals = genQvtPublicSignals(
             _intermediateStateRoot,
-            _newResultsCommitment
+            _newResultsCommitment,
+            _newSpentVoiceCreditsCommitment,
+            _newPerVOSpentVoiceCreditsCommitment
         );
 
         // Unpack the snark proof
@@ -576,12 +577,55 @@ contract MACI is Ownable, DomainObjs, ComputeRoot {
         // Save the commitment to the new results for the next batch
         currentResultsCommitment = _newResultsCommitment;
 
+        // Save the commitment to the total spent voice credits for the next batch
+        currentSpentVoiceCreditsCommitment = _newSpentVoiceCreditsCommitment;
+
+        // Save the commitment to the per voice credit spent voice credits for the next batch
+        currentPerVOSpentVoiceCreditsCommitment = _newPerVOSpentVoiceCreditsCommitment;
+
         // Increment the batch #
         currentQvtBatchNum ++;
     }
 
+    /*
+     * Verify the result of the vote tally using a Merkle proof and the salt.
+     * This function can also verify the number of voice credits spent per vote
+     * option as the commitment is computed in the same way.
+     */
+    function verifyTallyResult(
+        uint8 _depth,
+        uint256 _index,
+        uint256 _leaf,
+        uint256[][] memory _pathElements,
+        uint256 _salt
+    ) public view returns (bool) {
+        uint256 computedRoot = computeMerkleRootFromPath(
+            _depth,
+            _index,
+            _leaf,
+            _pathElements
+        );
+
+        uint256 computedCommitment = hashLeftRight(computedRoot, _salt);
+        return computedCommitment == currentResultsCommitment;
+    }
+
+    /*
+     * Verify the total number of spent voice credits.
+     * @param _spent The value to verify
+     * @param _salt The salt which is hashed with the value to generate the
+     *              commitment to the spent voice credits.
+     */
+    function verifySpentVoiceCredits(
+        uint256 _spent,
+        uint256 _salt
+    ) public view returns (bool) {
+        uint256 computedCommitment = hashLeftRight(_spent, _salt);
+        return computedCommitment == currentSpentVoiceCreditsCommitment;
+    }
+
     function calcEmptyVoteOptionTreeRoot(uint8 _levels) public pure returns (uint256) {
-        return computeEmptyRoot(_levels, 0);
+        return computeEmptyQuinRoot(_levels, 0);
     }
 
     function getMessageTreeRoot() public view returns (uint256) {
