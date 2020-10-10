@@ -1,0 +1,16 @@
+{
+  "name": "maci-docs",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "serve": "gitbook install && gitbook serve",
+    "build": "gitbook install && gitbook build"
+  },
+  "author": "Koh Wei Jie",
+  "license": "MIT",
+  "dependencies": {
+    "gitbook-cli": "^2.3.2",
+    "mathjax": "^2.7.6"
+  }
+}

@@ -1,6 +1,8 @@
-import {
-    SnarkProof,
-} from 'libsemaphore'
+interface SnarkProof {
+    pi_a: BigInt[];
+    pi_b: BigInt[][];
+    pi_c: BigInt[];
+}
 
 import {
     deployMaci,

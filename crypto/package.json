@@ -1,6 +1,6 @@
 {
     "name": "maci-crypto",
-    "version": "0.3.2",
+    "version": "1.0.0",
     "description": "",
     "main": "build/index.js",
     "scripts": {
@@ -9,6 +9,8 @@
         "test": "jest",
         "test-crypto": "jest Crypto.test.ts",
         "test-crypto-debug": "node --inspect-brk ./node_modules/.bin/jest Crypto.test.ts",
+        "test-accQueue": "jest AccQueue.test.ts",
+        "test-accQueue-debug": "node --inspect-brk ./node_modules/.bin/jest AccQueue.test.ts",
         "test-quin-mt": "jest IncrementalQuinTree.test.ts",
         "test-quin-mt-debug": "node --inspect-brk ./node_modules/.bin/jest IncrementalQuinTree.test.ts",
         "test-mt": "jest IncrementalMerkleTree.test.ts",

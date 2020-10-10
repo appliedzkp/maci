@@ -4,6 +4,7 @@ import * as ethers from 'ethers'
 const ff = require('ffjavascript')
 import { babyJub, mimc7, poseidon, eddsa } from 'circomlib'
 import { IncrementalQuinTree } from './IncrementalQuinTree'
+import { AccQueue } from './AccQueue'
 const stringifyBigInts: (obj: object) => any = ff.utils.stringifyBigInts
 const unstringifyBigInts: (obj: object) => any = ff.utils.unstringifyBigInts
 
@@ -381,6 +382,7 @@ export {
     unstringifyBigInts,
     formatPrivKeyForBabyJub,
     IncrementalQuinTree,
+    AccQueue,
     NOTHING_UP_MY_SLEEVE,
     SNARK_FIELD_SIZE,
     bigInt2Buffer,

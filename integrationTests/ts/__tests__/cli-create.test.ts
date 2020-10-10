@@ -8,7 +8,7 @@ import {
 
 import {
     maciContractAbi,
-    initialVoiceCreditProxyAbi,
+    getInitialVoiceCreditProxyAbi,
     genTestAccounts,
 } from 'maci-contracts'
 
@@ -107,7 +107,7 @@ describe('create CLI subcommand', () => {
         const ivcpContractAddress = await maciContract.initialVoiceCreditProxy()
         const ivcpContract = new ethers.Contract(
             ivcpContractAddress,
-            initialVoiceCreditProxyAbi,
+            getInitialVoiceCreditProxyAbi(),
             provider,
         )
 

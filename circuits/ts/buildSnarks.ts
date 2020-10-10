@@ -127,7 +127,7 @@ const main = () => {
     } else {
         console.log(`Compiling ${inputFile}...`)
         // Compile the .circom file
-        shell.exec(`node ./node_modules/circom/cli.js ${inputFile} -r ${circuitOut} -w ${wasmOut}`)
+        shell.exec(`node --max-old-space-size=8192 ./node_modules/circom/cli.js ${inputFile} -r ${circuitOut} -w ${wasmOut}`)
         console.log('Generated', circuitOut, 'and', wasmOut)
     }
 

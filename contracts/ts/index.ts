@@ -7,13 +7,13 @@ import {
     deployConstantInitialVoiceCreditProxy,
     deployFreeForAllSignUpGatekeeper,
     maciContractAbi,
-    initialVoiceCreditProxyAbi,
+    getInitialVoiceCreditProxyAbi,
     abiDir,
     solDir,
     loadAB,
     loadAbi,
     loadBin,
-    linkPoseidonContracts,
+    linkPoseidonLibraries,
 } from './deploy'
 
 import { formatProofForVerifierContract } from './utils'
@@ -36,7 +36,7 @@ export {
     deployFreeForAllSignUpGatekeeper,
     deployConstantInitialVoiceCreditProxy,
     maciContractAbi,
-    initialVoiceCreditProxyAbi,
+    getInitialVoiceCreditProxyAbi,
     formatProofForVerifierContract,
-    linkPoseidonContracts,
+    linkPoseidonLibraries,
 }

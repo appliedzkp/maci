@@ -203,6 +203,7 @@ describe('BatchProcessMessage', () => {
                     batchSize,
                     randomStateLeaf,
                 )
+            console.log('Number of messages:', maciState.messages.length)
 
             // Process the batch of messages
             maciState.batchProcessMessage(

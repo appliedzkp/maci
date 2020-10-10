@@ -25,26 +25,16 @@ const loadAB = (contractName: string) => {
     return [ abi, bin ]
 }
 
-
-const [ SignupTokenAbi, SignupTokenBin ] = loadAB('SignUpToken')
-const [ SignUpTokenGatekeeperAbi, SignUpTokenGatekeeperBin ] = loadAB('SignUpTokenGatekeeper')
-const [ ConstantInitialVoiceCreditProxyAbi, ConstantInitialVoiceCreditProxyBin ]
-    = loadAB('ConstantInitialVoiceCreditProxy')
-const [ FreeForAllSignUpGatekeeperAbi, FreeForAllSignUpGatekeeperBin ]
-    = loadAB('FreeForAllGatekeeper')
-const InitialVoiceCreditProxyAbi = loadAbi('InitialVoiceCreditProxy.abi')
-const [ BatchUpdateStateTreeVerifierAbi, BatchUpdateStateTreeVerifierBin ] = loadAB('BatchUpdateStateTreeVerifier')
-const [ QuadVoteTallyVerifierAbi, QuadVoteTallyVerifierBin ] = loadAB('QuadVoteTallyVerifier')
-const [ BatchUpdateStateTreeVerifierSmallAbi, BatchUpdateStateTreeVerifierSmallBin ] = loadAB('BatchUpdateStateTreeVerifierSmall')
-const [ QuadVoteTallyVerifierSmallAbi, QuadVoteTallyVerifierSmallBin ] = loadAB('QuadVoteTallyVerifierSmall')
-
 const PoseidonT3 = require('../compiled/PoseidonT3.json')
 const PoseidonT6 = require('../compiled/PoseidonT6.json')
 
 const maciContractAbi = loadAbi('MACI.abi')
-const initialVoiceCreditProxyAbi = InitialVoiceCreditProxyAbi
 
-const linkPoseidonContracts = (
+const getInitialVoiceCreditProxyAbi = () => {
+    return loadAbi('InitialVoiceCreditProxy.abi')
+}
+
+const linkPoseidonLibraries = (
     solFilesToLink: string[],
     poseidonT3Address,
     poseidonT6Address,
@@ -58,7 +48,7 @@ const linkPoseidonContracts = (
     const maciSolPath = path.join(d, 'sol')
     const ozSolPath = path.join(d, 'node_modules', '@openzeppelin')
 
-    const poseidonPath = path.join(__dirname, '..', 'sol', 'Poseidon.sol')
+    const poseidonPath = path.join(__dirname, '..', 'sol', 'crypto', 'Hasher.sol')
     const solcPath = path.join(__dirname, '..', 'solc')
     const linkCmd = `${solcPath}`
         + ` @openzeppelin/=${ozSolPath}/`
@@ -132,6 +122,8 @@ const deployConstantInitialVoiceCreditProxy = async (
     quiet = false
 ) => {
     log('Deploying InitialVoiceCreditProxy', quiet)
+    const [ ConstantInitialVoiceCreditProxyAbi, ConstantInitialVoiceCreditProxyBin ]
+        = loadAB('ConstantInitialVoiceCreditProxy')
     return await deployer.deploy(
         ConstantInitialVoiceCreditProxyAbi,
         ConstantInitialVoiceCreditProxyBin,
@@ -141,6 +133,7 @@ const deployConstantInitialVoiceCreditProxy = async (
 
 const deploySignupToken = async (deployer) => {
     console.log('Deploying SignUpToken')
+    const [ SignupTokenAbi, SignupTokenBin ] = loadAB('SignUpToken')
     return await deployer.deploy(
         SignupTokenAbi,
         SignupTokenBin,
@@ -153,6 +146,8 @@ const deploySignupTokenGatekeeper = async (
     quiet = false
 ) => {
     log('Deploying SignUpTokenGatekeeper', quiet)
+
+    const [ SignUpTokenGatekeeperAbi, SignUpTokenGatekeeperBin ] = loadAB('SignUpTokenGatekeeper')
     const signUpTokenGatekeeperContract = await deployer.deploy(
         SignUpTokenGatekeeperAbi,
         SignUpTokenGatekeeperBin,
@@ -167,6 +162,8 @@ const deployFreeForAllSignUpGatekeeper = async (
     quiet = false
 ) => {
     log('Deploying FreeForAllSignUpGatekeeper', quiet)
+    const [ FreeForAllSignUpGatekeeperAbi, FreeForAllSignUpGatekeeperBin ]
+        = loadAB('FreeForAllGatekeeper')
     return await deployer.deploy(
         FreeForAllSignUpGatekeeperAbi,
         FreeForAllSignUpGatekeeperBin,
@@ -217,6 +214,8 @@ const deployMaci = async (
     let batchUstVerifierContract
     let quadVoteTallyVerifierContract
     if (configType === 'test') {
+        const [ BatchUpdateStateTreeVerifierAbi, BatchUpdateStateTreeVerifierBin ]
+            = loadAB('BatchUpdateStateTreeVerifier')
         log('Deploying BatchUpdateStateTreeVerifier', quiet)
         batchUstVerifierContract = await deployer.deploy(
             BatchUpdateStateTreeVerifierAbi,
@@ -224,18 +223,24 @@ const deployMaci = async (
         )
 
         log('Deploying QuadVoteTallyVerifier', quiet)
+        const [ QuadVoteTallyVerifierAbi, QuadVoteTallyVerifierBin ]
+            = loadAB('QuadVoteTallyVerifier')
         quadVoteTallyVerifierContract = await deployer.deploy(
             QuadVoteTallyVerifierAbi,
             QuadVoteTallyVerifierBin,
         )
     } else if (configType === 'prod-small') {
         log('Deploying BatchUpdateStateTreeVerifier', quiet)
+        const [ BatchUpdateStateTreeVerifierSmallAbi, BatchUpdateStateTreeVerifierSmallBin ]
+            = loadAB('BatchUpdateStateTreeVerifierSmall')
         batchUstVerifierContract = await deployer.deploy(
             BatchUpdateStateTreeVerifierSmallAbi,
             BatchUpdateStateTreeVerifierSmallBin,
         )
 
         log('Deploying QuadVoteTallyVerifier', quiet)
+        const [ QuadVoteTallyVerifierSmallAbi, QuadVoteTallyVerifierSmallBin ]
+            = loadAB('QuadVoteTallyVerifierSmall')
         quadVoteTallyVerifierContract = await deployer.deploy(
             QuadVoteTallyVerifierSmallAbi,
             QuadVoteTallyVerifierSmallBin,
@@ -248,7 +253,7 @@ const deployMaci = async (
     const maxMessages = (BigInt(2 ** messageTreeDepth) - BigInt(1)).toString()
 
     // Link Poseidon contracts to MACI
-    linkPoseidonContracts(['MACI.sol'], PoseidonT3Contract.address, PoseidonT6Contract.address)
+    linkPoseidonLibraries(['MACI.sol'], PoseidonT3Contract.address, PoseidonT6Contract.address)
 
     const [ MACIAbi, MACIBin ] = loadAB('MACI')
 
@@ -403,11 +408,11 @@ export {
     genProvider,
     genJsonRpcDeployer,
     maciContractAbi,
-    initialVoiceCreditProxyAbi,
+    getInitialVoiceCreditProxyAbi,
     abiDir,
     solDir,
     loadAB,
     loadAbi,
     loadBin,
-    linkPoseidonContracts,
+    linkPoseidonLibraries,
 }

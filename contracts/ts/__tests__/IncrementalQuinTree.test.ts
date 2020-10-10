@@ -11,7 +11,7 @@ import {
 import { JSONRPCDeployer } from '../deploy'
 const PoseidonT3 = require('@maci-contracts/compiled/PoseidonT3.json')
 const PoseidonT6 = require('@maci-contracts/compiled/PoseidonT6.json')
-import { loadAB, linkPoseidonContracts } from '../'
+import { loadAB, linkPoseidonLibraries } from '../'
 
 const accounts = genTestAccounts(1)
 let deployer
@@ -39,7 +39,7 @@ describe('IncrementalQuinTree', () => {
         PoseidonT6Contract = await deployer.deploy(PoseidonT6.abi, PoseidonT6.bytecode, {})
 
         // Link Poseidon contracts
-        linkPoseidonContracts(
+        linkPoseidonLibraries(
             ['IncrementalQuinTree.sol', 'ComputeRoot.sol'],
             PoseidonT3Contract.address,
             PoseidonT6Contract.address,
